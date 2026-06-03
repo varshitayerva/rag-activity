@@ -1,8 +1,13 @@
 """In-memory vector store using sentence-transformers with offline fallback."""
 
+import os
 import numpy as np
 from typing import List, Dict, Any
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env file
+load_dotenv()
 
 try:
     from sentence_transformers import SentenceTransformer
