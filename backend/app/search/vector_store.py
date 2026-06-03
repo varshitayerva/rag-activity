@@ -172,9 +172,9 @@ class VectorStore:
 # Global instance - lazy loaded on first use
 vector_store = None
 
-def get_vector_store():
+def get_vector_store(reset=False):
     """Get or initialize vector store."""
     global vector_store
-    if vector_store is None:
+    if reset or vector_store is None:
         vector_store = VectorStore()
     return vector_store

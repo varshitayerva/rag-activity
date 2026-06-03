@@ -52,15 +52,16 @@ class PostgresClient:
             return False
 
     # Document operations
-    def add_document(self, filename: str, content_type: str, file_size: int) -> int:
+    def add_document(self, filename: str, content_type: str, file_size: int,
+                     department: str = None, category: str = None) -> int:
         """Add document to database. Returns document ID."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
 
             try:
                 cursor.execute(
-                    "INSERT INTO documents (filename, content_type, file_size) VALUES (%s, %s, %s) RETURNING id",
-                    (filename, content_type, file_size)
+                    "INSERT INTO documents (filename, content_type, file_size, department, category) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+                    (filename, content_type, file_size, department, category)
                 )
                 doc_id = cursor.fetchone()[0]
                 conn.commit()
@@ -140,6 +141,44 @@ class PostgresClient:
             cursor = conn.cursor(cursor_factory=RealDictCursor)
 
             cursor.execute("SELECT * FROM chunks ORDER BY document_id, chunk_index")
+            results = cursor.fetchall()
+            cursor.close()
+
+            return [dict(row) for row in results]
+
+    def get_chunks_with_filters(self, department: str = None, category: str = None,
+                                date_from: str = None, date_to: str = None) -> List[Dict[str, Any]]:
+        """Get chunks filtered by department, category, and date range."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+            query = """
+                SELECT c.*, d.filename, d.department, d.category, d.created_at
+                FROM chunks c
+                JOIN documents d ON c.document_id = d.id
+                WHERE 1=1
+            """
+            params = []
+
+            if department:
+                query += " AND d.department = %s"
+                params.append(department)
+
+            if category:
+                query += " AND d.category = %s"
+                params.append(category)
+
+            if date_from:
+                query += " AND d.created_at >= %s"
+                params.append(date_from)
+
+            if date_to:
+                query += " AND d.created_at <= %s"
+                params.append(date_to)
+
+            query += " ORDER BY c.document_id, c.chunk_index"
+
+            cursor.execute(query, params)
             results = cursor.fetchall()
             cursor.close()
 

@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS documents (
     filename VARCHAR(255) NOT NULL UNIQUE,
     content_type VARCHAR(50),
     file_size INTEGER,
+    department VARCHAR(100),
+    category VARCHAR(100),
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

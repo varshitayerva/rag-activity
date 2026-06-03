@@ -4,6 +4,8 @@ import { UploadPanel } from './components/UploadPanel'
 import { FilterBar } from './components/FilterBar'
 import { SourceCard } from './components/SourceCard'
 import { MetricsBar } from './components/MetricsBar'
+import { StatusIndicator } from './components/StatusIndicator'
+import { apiClient } from './utils/api'
 import { Search, Upload, Moon, Sun, Menu, X } from 'lucide-react'
 
 function App() {
@@ -12,15 +14,43 @@ function App() {
   const [filters, setFilters] = useState({ department: '', category: '', dateFrom: '', dateTo: '' })
   const [darkMode, setDarkMode] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [documentCount, setDocumentCount] = useState(3)
+  const [documentCount, setDocumentCount] = useState(0)
+  const [chunkCount, setChunkCount] = useState(0)
 
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
+    const fetchCounts = async () => {
+      try {
+        const docs = await apiClient.getDocuments()
+        setDocumentCount(docs.documents.length)
+      } catch (error) {
+        console.error('Failed to fetch documents:', error)
+      }
     }
-  }, [darkMode])
+    fetchCounts()
+  }, [])
+
+  useEffect(() => {
+    const fetchChunks = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/documents')
+        if (response.ok) {
+          const data = await response.json()
+          let totalChunks = 0
+          for (const doc of data.documents) {
+            const chunksRes = await fetch(`http://localhost:8000/api/documents/${doc.id}/chunks`)
+            if (chunksRes.ok) {
+              const chunksData = await chunksRes.json()
+              totalChunks += chunksData.count
+            }
+          }
+          setChunkCount(totalChunks)
+        }
+      } catch (error) {
+        console.error('Failed to fetch chunks:', error)
+      }
+    }
+    fetchChunks()
+  }, [documentCount])
 
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters)
@@ -42,33 +72,33 @@ function App() {
   return (
     <div className={`h-screen flex flex-col ${darkMode ? 'dark' : ''}`}>
       {/* Header */}
-      <header className="bg-gradient-to-r from-blue-600 to-blue-800 dark:from-blue-900 dark:to-blue-950 text-white p-4 shadow-lg border-b border-blue-700">
+      <header className="bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 dark:from-blue-900 dark:via-purple-900 dark:to-slate-950 text-white p-6 shadow-2xl border-b border-blue-500/30 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-              <Zap className="text-blue-600" size={24} />
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-200 to-blue-400 rounded-xl flex items-center justify-center shadow-lg transform hover:scale-110 transition-transform duration-300">
+              <Search className="text-blue-700" size={28} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
+              <h1 className="text-3xl font-black bg-gradient-to-r from-white via-blue-100 to-purple-200 bg-clip-text text-transparent">
                 AI Search Copilot
               </h1>
-              <p className="text-blue-100 text-xs">Semantic RAG with Real Embeddings</p>
+              <p className="text-blue-200 text-sm font-medium tracking-wide">Semantic RAG with Real-time Intelligence 🚀</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-full p-1 border border-white/20">
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 transition"
+              className="p-2.5 rounded-full hover:bg-white/20 transition-all duration-300 transform hover:scale-110"
               title="Toggle dark mode"
             >
-              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+              {darkMode ? <Sun size={22} className="text-yellow-300" /> : <Moon size={22} className="text-blue-200" />}
             </button>
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 transition lg:hidden"
+              className="p-2.5 rounded-full hover:bg-white/20 transition-all duration-300 lg:hidden"
             >
-              {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+              {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
           </div>
         </div>
@@ -78,7 +108,7 @@ function App() {
       <div className="flex-1 flex overflow-hidden bg-gray-50 dark:bg-gray-900">
         {/* Sidebar */}
         {sidebarOpen && (
-          <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-sm p-6 overflow-y-auto">
+          <aside className="w-72 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-r border-gray-300 dark:border-gray-700 shadow-xl p-8 overflow-y-auto">
             <nav className="space-y-3">
               {navItems.map(item => {
                 const Icon = item.icon
@@ -86,32 +116,27 @@ function App() {
                   <button
                     key={item.id}
                     onClick={() => setView(item.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition ${
+                    className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-xl font-semibold transition-all duration-300 transform ${
                       view === item.id
-                        ? 'bg-blue-600 text-white shadow-lg'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg scale-105 border border-blue-500'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700/50 hover:shadow-md border border-transparent'
                     }`}
                   >
-                    <Icon size={20} />
-                    {item.label}
+                    <Icon size={22} />
+                    <span>{item.label}</span>
                   </button>
                 )
               })}
             </nav>
 
             {/* Stats */}
-            <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 space-y-4">
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Documents</p>
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{documentCount}</p>
+            <div className="mt-10 pt-8 border-t-2 border-gray-300 dark:border-gray-700 space-y-4">
+              <div className="bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-700 dark:to-blue-800 rounded-2xl p-5 shadow-lg text-white transform hover:scale-105 transition-transform duration-300">
+                <p className="text-xs text-blue-100 font-semibold mb-2 uppercase tracking-wider">📚 Documents</p>
+                <p className="text-4xl font-black">{documentCount}</p>
+                <p className="text-xs text-blue-100 mt-2">Ready to search</p>
               </div>
-              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-                <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Status</p>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <p className="text-sm font-semibold text-green-600 dark:text-green-400">Online</p>
-                </div>
-              </div>
+              <StatusIndicator />
             </div>
           </aside>
         )}
@@ -128,34 +153,36 @@ function App() {
                 <FilterBar onFilterChange={handleFilterChange} />
                 <div className="flex-1 flex gap-4 overflow-hidden p-4">
                   <div className="flex-1 flex flex-col min-w-0">
-                    <ChatPanel onSourcesUpdate={handleSourcesUpdate} />
+                    <ChatPanel onSourcesUpdate={handleSourcesUpdate} filters={filters} />
                   </div>
 
                   {/* Right Sidebar - Retrieved Sources */}
-                  <div className="w-96 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
-                    <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                        <h3 className="font-semibold text-gray-900 dark:text-white">
-                          Retrieved Sources
+                  <div className="w-2/5 bg-gradient-to-br from-white to-blue-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-2xl border-2 border-blue-200 dark:border-blue-800 flex flex-col overflow-hidden">
+                    <div className="p-5 border-b-2 border-blue-200 dark:border-blue-800 bg-gradient-to-r from-blue-600 via-blue-700 to-purple-800 dark:from-blue-900 dark:via-purple-900 dark:to-slate-950">
+                      <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+                        <h3 className="font-bold text-white text-lg">
+                          Sources
                         </h3>
-                        <span className="ml-auto bg-blue-600 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                        <span className="ml-auto bg-white/20 backdrop-blur-sm text-white text-sm px-3 py-1.5 rounded-full font-bold border border-white/30">
                           {retrievedSources.length}
                         </span>
                       </div>
                     </div>
 
                     {retrievedSources.length === 0 ? (
-                      <div className="flex-1 flex items-center justify-center p-6">
+                      <div className="flex-1 flex items-center justify-center p-8">
                         <div className="text-center">
-                          <Search size={40} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                          <p className="text-gray-500 dark:text-gray-400 text-sm">
-                            Search to see sources
+                          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                            <Search size={32} className="text-white" />
+                          </div>
+                          <p className="text-gray-600 dark:text-gray-400 text-sm font-semibold">
+                            Start searching to see sources
                           </p>
                         </div>
                       </div>
                     ) : (
-                      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                      <div className="flex-1 overflow-y-auto p-5 space-y-4">
                         {retrievedSources.map((source, idx) => (
                           <SourceCard key={idx} source={source} />
                         ))}
@@ -187,7 +214,7 @@ function App() {
                     </div>
                     <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
                       <div className="text-4xl font-bold text-green-600 dark:text-green-400 mb-2">
-                        15
+                        {chunkCount}
                       </div>
                       <p className="text-gray-600 dark:text-gray-400">Chunks Ready to Search</p>
                     </div>
@@ -197,7 +224,6 @@ function App() {
                 </div>
               </div>
             )}
-
           </div>
         </main>
       </div>
