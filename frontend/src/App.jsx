@@ -5,8 +5,14 @@ import { FilterBar } from './components/FilterBar'
 import { SourceCard } from './components/SourceCard'
 import { MetricsBar } from './components/MetricsBar'
 import { StatusIndicator } from './components/StatusIndicator'
+import { UserProfile } from './components/UserProfile'
+import { FeedbackPanel } from './components/FeedbackPanel'
+import { CacheDashboard } from './components/CacheDashboard'
+import { MonitoringDashboard } from './components/MonitoringDashboard'
+import { AdminDashboard } from './components/AdminDashboard'
+import { UserStatsDashboard } from './components/UserStatsDashboard'
 import { apiClient } from './utils/api'
-import { Search, Upload, Moon, Sun, Menu, X } from 'lucide-react'
+import { Search, Upload, Moon, Sun, Menu, X, User, MessageSquare, Zap, Activity, BarChart3, LineChart } from 'lucide-react'
 
 function App() {
   const [view, setView] = useState('chat')
@@ -67,6 +73,12 @@ function App() {
   const navItems = [
     { id: 'chat', label: 'Chat', icon: Search },
     { id: 'docs', label: 'Documents', icon: Upload },
+    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'feedback', label: 'Feedback', icon: MessageSquare },
+    { id: 'cache', label: 'Cache', icon: Zap },
+    { id: 'monitoring', label: 'Monitoring', icon: Activity },
+    { id: 'admin', label: 'Admin', icon: BarChart3 },
+    { id: 'stats', label: 'My Stats', icon: LineChart },
   ]
 
   return (
@@ -222,6 +234,52 @@ function App() {
 
                   <UploadPanel onUploadSuccess={handleUploadSuccess} />
                 </div>
+              </div>
+            )}
+
+            {view === 'profile' && (
+              <div className="h-full overflow-y-auto p-8">
+                <div className="max-w-4xl mx-auto">
+                  <UserProfile apiKey="sk-demo-key-12345" />
+                </div>
+              </div>
+            )}
+
+            {view === 'feedback' && (
+              <div className="h-full overflow-y-auto p-8">
+                <div className="max-w-3xl mx-auto">
+                  <FeedbackPanel apiKey="sk-demo-key-12345" />
+                </div>
+              </div>
+            )}
+
+            {view === 'cache' && (
+              <div className="h-full overflow-y-auto p-8">
+                <div className="max-w-4xl mx-auto">
+                  <CacheDashboard apiKey="sk-demo-key-12345" />
+                </div>
+              </div>
+            )}
+
+            {view === 'monitoring' && (
+              <div className="h-full overflow-y-auto p-8">
+                <div className="max-w-6xl mx-auto">
+                  <MonitoringDashboard apiKey="sk-demo-key-12345" />
+                </div>
+              </div>
+            )}
+
+            {view === 'admin' && (
+              <div className="h-full overflow-y-auto p-8">
+                <div className="max-w-6xl mx-auto">
+                  <AdminDashboard />
+                </div>
+              </div>
+            )}
+
+            {view === 'stats' && (
+              <div className="h-full overflow-y-auto">
+                <UserStatsDashboard />
               </div>
             )}
           </div>
