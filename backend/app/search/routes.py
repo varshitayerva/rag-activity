@@ -10,13 +10,51 @@ router = APIRouter(prefix="/api", tags=["search"])
 def search_chunks(query: str, top_k: int = 10) -> list:
     """Search chunks using vector similarity."""
     try:
-        # Get vector store and search
+        # Get vector store
         vs = get_vector_store()
+
+        # If vector store is empty, load from database
+        if vs.size() == 0:
+            print("Vector store empty, loading from database...")
+            load_vector_store_from_db(vs)
+
+        # Search
         results = vs.search(query, top_k=top_k)
         return results
     except Exception as e:
         print(f"Vector search error: {e}")
         return []
+
+
+def load_vector_store_from_db(vs):
+    """Load all chunks from database into vector store."""
+    try:
+        chunks = db_client.get_all_chunks()
+        if not chunks:
+            print("No chunks found in database")
+            return
+
+        print(f"Loading {len(chunks)} chunks into vector store...")
+
+        # Prepare chunks for vector store
+        texts = [chunk['text'] for chunk in chunks]
+        metadata_list = [
+            {
+                'chunk_id': chunk['id'],
+                'text': chunk['text'],
+                'doc_id': chunk['document_id'],
+                'section': chunk.get('section'),
+                'page_number': chunk.get('page_number')
+            }
+            for chunk in chunks
+        ]
+
+        # Add to vector store
+        vs.add(texts, metadata_list)
+        print(f"Vector store loaded with {len(chunks)} chunks")
+
+    except Exception as e:
+        print(f"Error loading vector store from database: {e}")
 
 
 @router.post("/search")
