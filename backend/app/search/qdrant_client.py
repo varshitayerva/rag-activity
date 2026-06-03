@@ -6,7 +6,8 @@ from typing import List, Optional, Dict, Any
 class QdrantVectorDB:
     def __init__(self, collection_name: str = "technical-support-chunks",
                  storage_path: str = "./qdrant_storage"):
-        self.client = QdrantClient(path=storage_path)
+        self.client = QdrantClient(":memory:")
+        print("Using in-memory Qdrant database")
         self.collection_name = collection_name
         self.vector_size = 1536  # OpenAI text-embedding-3-small dimension
         self.ensure_collection_exists()

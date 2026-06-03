@@ -7,15 +7,18 @@ class BM25SearchEngine:
         """Initialize BM25 search engine."""
         self.bm25 = None
         self.corpus = []  # Original texts for reference
+        self.chunks = []  # Full chunk metadata
         self.tokenized_corpus = []  # Tokenized texts for BM25
 
-    def build_index(self, texts: List[str]):
+    def build_index(self, texts: List[str], chunks: List[Dict[str, Any]] = None):
         """Build BM25 index from texts.
 
         Args:
             texts: List of text documents/chunks
+            chunks: Optional list of full chunk dicts with metadata
         """
         self.corpus = texts
+        self.chunks = chunks or [{'text': text} for text in texts]
         self.tokenized_corpus = [self._tokenize(text) for text in texts]
         self.bm25 = BM25Okapi(self.tokenized_corpus)
         print(f"BM25 index built with {len(texts)} documents")
@@ -57,12 +60,20 @@ class BM25SearchEngine:
 
         results = []
         for rank, (idx, score) in enumerate(indexed_scores[:top_k]):
-            results.append({
+            chunk = self.chunks[idx] if idx < len(self.chunks) else {}
+            result = {
+                'chunk_id': chunk.get('chunk_id', f'chunk_{idx}'),
                 'text': self.corpus[idx],
-                'score': float(score),  # BM25 score (higher is better)
-                'rank': rank,
-                'doc_index': idx
-            })
+                'doc_id': chunk.get('doc_id', ''),
+                'filename': chunk.get('filename', ''),
+                'section': chunk.get('section', ''),
+                'page': chunk.get('page', 0),
+                'department': chunk.get('department', ''),
+                'category': chunk.get('category', ''),
+                'score': float(score),
+                'rank': rank
+            }
+            results.append(result)
 
         return results
 

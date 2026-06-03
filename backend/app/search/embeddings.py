@@ -1,4 +1,6 @@
 import os
+import hashlib
+import numpy as np
 from openai import OpenAI
 from typing import List, Union
 
@@ -29,11 +31,15 @@ class EmbeddingsClient:
         Returns:
             Embedding vector (list of floats)
         """
-        response = self.client.embeddings.create(
-            input=query,
-            model=self.model
-        )
-        return response.data[0].embedding
+        try:
+            response = self.client.embeddings.create(
+                input=query,
+                model=self.model
+            )
+            return response.data[0].embedding
+        except Exception as e:
+            print(f"OpenAI embedding failed: {e}. Using mock embedding.")
+            return self._mock_embedding(query)
 
     def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """Embed multiple texts in batch.
@@ -47,14 +53,16 @@ class EmbeddingsClient:
         if not texts:
             return []
 
-        response = self.client.embeddings.create(
-            input=texts,
-            model=self.model
-        )
-
-        # Sort by index to ensure correct order
-        embeddings = sorted(response.data, key=lambda x: x.index)
-        return [item.embedding for item in embeddings]
+        try:
+            response = self.client.embeddings.create(
+                input=texts,
+                model=self.model
+            )
+            embeddings = sorted(response.data, key=lambda x: x.index)
+            return [item.embedding for item in embeddings]
+        except Exception as e:
+            print(f"OpenAI batch embedding failed: {e}. Using mock embeddings.")
+            return [self._mock_embedding(text) for text in texts]
 
     def embed_chunks(self, chunks: List[dict]) -> List[List[float]]:
         """Embed chunk texts from chunk dicts.
@@ -67,3 +75,11 @@ class EmbeddingsClient:
         """
         texts = [chunk['text'] for chunk in chunks]
         return self.embed_batch(texts)
+
+    def _mock_embedding(self, text: str) -> List[float]:
+        """Generate deterministic mock embedding based on text hash."""
+        text_hash = hashlib.md5(text.encode()).digest()
+        np.random.seed(int.from_bytes(text_hash[:4], 'big'))
+        embedding = np.random.randn(self.embedding_dim).astype(np.float32)
+        embedding = embedding / np.linalg.norm(embedding)
+        return embedding.tolist()

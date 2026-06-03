@@ -44,10 +44,26 @@ class RRFFusion:
             rrf_scores[text]['bm25_relevance'] = result['score']
             rrf_scores[text]['from_bm25'] = True
 
-        # Calculate combined RRF scores
+        # Calculate combined RRF scores while preserving metadata
         combined_results = []
         for text, scores in rrf_scores.items():
             combined_score = scores.get('vector_score', 0) + scores.get('bm25_score', 0)
+
+            # Get metadata from either vector or BM25 result
+            metadata = {}
+            if scores.get('from_vector'):
+                # Find original vector result to get metadata
+                for result in vector_results:
+                    if result['text'] == text:
+                        metadata = {k: v for k, v in result.items() if k not in ['text', 'score', 'rank']}
+                        break
+            if scores.get('from_bm25') and not metadata:
+                # Fall back to BM25 metadata if vector doesn't have it
+                for result in bm25_results:
+                    if result['text'] == text:
+                        metadata = {k: v for k, v in result.items() if k not in ['text', 'score', 'rank']}
+                        break
+
             combined_results.append({
                 'text': text,
                 'combined_rrf_score': combined_score,
@@ -57,16 +73,30 @@ class RRFFusion:
                 'bm25_score': scores.get('bm25_relevance', None),
                 'from_vector': scores.get('from_vector', False),
                 'from_bm25': scores.get('from_bm25', False),
+                'score': combined_score,  # Add final score for response
+                **metadata  # Include all metadata
             })
 
         # Sort by combined RRF score descending
         combined_results.sort(key=lambda x: x['combined_rrf_score'], reverse=True)
 
-        # Add final rank
+        # Add final rank and format for response
+        final_results = []
         for idx, result in enumerate(combined_results):
-            result['final_rank'] = idx
+            final_results.append({
+                'text': result['text'],
+                'score': result['combined_rrf_score'],
+                'rank': idx,
+                'chunk_id': result.get('chunk_id', ''),
+                'doc_id': result.get('doc_id', ''),
+                'filename': result.get('filename', ''),
+                'section': result.get('section', ''),
+                'page': result.get('page', 0),
+                'department': result.get('department', ''),
+                'category': result.get('category', ''),
+            })
 
-        return combined_results
+        return final_results
 
     @staticmethod
     def apply_metadata_filter(results: List[Dict[str, Any]],

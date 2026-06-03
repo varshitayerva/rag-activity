@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional, Literal
 import os
 from app.search.hybrid_search import HybridSearchService
+from app.search.bm25_search import BM25SearchEngine
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -22,16 +23,25 @@ app.add_middleware(
 )
 
 # Initialize search service
-qdrant_storage_path = os.getenv("QDRANT_STORAGE_PATH", "./qdrant_storage")
+postgres_host = os.getenv("POSTGRES_HOST", "localhost")
+postgres_user = os.getenv("POSTGRES_USER", "postgres")
+postgres_password = os.getenv("POSTGRES_PASSWORD", "1234")
+postgres_db = os.getenv("POSTGRES_DB", "fde_rag")
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
 try:
     search_service = HybridSearchService(
-        qdrant_storage_path=qdrant_storage_path,
+        postgres_host=postgres_host,
+        postgres_user=postgres_user,
+        postgres_password=postgres_password,
+        postgres_db=postgres_db,
         openai_api_key=openai_api_key
     )
+    print("Search service initialized successfully (using PostgreSQL + pgvector)")
 except Exception as e:
     print(f"Warning: Failed to initialize search service: {e}")
+    import traceback
+    traceback.print_exc()
     search_service = None
 
 
@@ -191,7 +201,23 @@ async def search(request: SearchRequest):
 
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+        import traceback
+        error_msg = str(e)
+        print(f"===== SEARCH ERROR =====")
+        print(f"Error: {e}")
+        print(f"Type: {type(e)}")
+        print(f"Result before response: {result if 'result' in locals() else 'No result'}")
+        traceback.print_exc()
+        print(f"========================")
+        # Return detailed error
+        return {
+            "query": request.query,
+            "chunks": [],
+            "search_type": request.search_type,
+            "num_results": 0,
+            "latency_ms": {},
+            "error": error_msg
+        }
 
 
 @app.post("/index", response_model=IndexResponse, tags=["Indexing"])
@@ -232,6 +258,45 @@ async def get_stats():
         raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
 
 
+@app.post("/load-demo", tags=["Demo"])
+async def load_demo_data():
+    """Load demo data for testing (uses mock embeddings, no OpenAI needed)."""
+    if search_service is None:
+        raise HTTPException(status_code=503, detail="Search service not initialized")
+
+    demo_chunks = [
+        {"chunk_id": "chunk_001", "text": "Kubernetes Pod CrashLoopBackOff Error. Pod keeps crashing and restarting. Check container logs with kubectl logs. Common causes: missing environment variables, configuration issues, or application errors.", "doc_id": "doc_001", "filename": "k8s.pdf", "section": "Pod Errors", "page": 1, "department": "Engineering", "category": "Kubernetes"},
+        {"chunk_id": "chunk_002", "text": "Kubernetes Pod Pending Status. Pod remains in pending state. Check node resources with kubectl describe node. Ensure sufficient CPU and memory available.", "doc_id": "doc_002", "filename": "k8s.pdf", "section": "Pod Errors", "page": 2, "department": "Engineering", "category": "Kubernetes"},
+        {"chunk_id": "chunk_003", "text": "PostgreSQL Connection Issues. Cannot connect to database. Verify connection string, check if PostgreSQL service is running, ensure firewall allows port 5432.", "doc_id": "doc_003", "filename": "db.pdf", "section": "Connection Issues", "page": 1, "department": "Backend", "category": "PostgreSQL"},
+        {"chunk_id": "chunk_004", "text": "Memory Leak Debugging. Application using increasing memory over time. Use profiler tools to identify leaks. Check for unclosed file handles and connections.", "doc_id": "doc_004", "filename": "debug.pdf", "section": "Performance Issues", "page": 10, "department": "Engineering", "category": "Debugging"},
+        {"chunk_id": "chunk_005", "text": "Kubernetes RBAC Access Control. Role-based access control manages who can access what resources. Use ServiceAccounts, Roles, and RoleBindings to grant minimal necessary permissions.", "doc_id": "doc_005", "filename": "k8s.pdf", "section": "Access Control", "page": 8, "department": "Engineering", "category": "Kubernetes"},
+    ]
+
+    try:
+        # Generate mock embeddings
+        embeddings = []
+        for chunk in demo_chunks:
+            embedding = search_service.embeddings._mock_embedding(chunk['text'])
+            embeddings.append(embedding)
+
+        # Add to PostgreSQL
+        search_service.vector_db.add_points(demo_chunks, embeddings)
+
+        # Build BM25 index
+        texts = [chunk['text'] for chunk in demo_chunks]
+        search_service.bm25.build_index(texts, demo_chunks)
+
+        return {
+            "status": "success",
+            "message": "Demo data loaded successfully to PostgreSQL",
+            "chunks_loaded": len(demo_chunks)
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to load demo data: {str(e)}")
+
+
 @app.delete("/index", tags=["Indexing"])
 async def clear_index():
     """
@@ -243,8 +308,8 @@ async def clear_index():
         raise HTTPException(status_code=503, detail="Search service not initialized")
 
     try:
-        search_service.vector_db.delete_collection()
-        search_service.bm25 = None  # Reset BM25 index
+        search_service.vector_db.delete_all()
+        search_service.bm25 = BM25SearchEngine()  # Reset BM25 index
         return {
             "status": "success",
             "message": "Index cleared successfully"
@@ -260,7 +325,7 @@ async def startup_event():
     """Log startup information."""
     print(f"FastAPI server starting...")
     if search_service:
-        print(f"Search service initialized with Qdrant storage: {qdrant_storage_path}")
+        print(f"Search service initialized with PostgreSQL database: {postgres_db}")
     else:
         print("Warning: Search service not initialized")
 

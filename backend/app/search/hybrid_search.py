@@ -1,19 +1,37 @@
 import time
 from typing import List, Dict, Any, Optional
-from .qdrant_client import QdrantVectorDB
+from .postgres_client import PostgresVectorDB
 from .embeddings import EmbeddingsClient
 from .bm25_search import BM25SearchEngine
 from .rrf_fusion import RRFFusion
 
 class HybridSearchService:
-    """Hybrid search combining vector (Qdrant) + sparse (BM25) search with RRF fusion."""
+    """Hybrid search combining vector (PostgreSQL+pgvector) + sparse (BM25) search with RRF fusion."""
 
-    def __init__(self, qdrant_storage_path: str = "./qdrant_storage",
+    def __init__(self, postgres_host: str = "localhost", postgres_user: str = "postgres",
+                 postgres_password: str = "1234", postgres_db: str = "fde_rag",
                  openai_api_key: str = None):
-        self.vector_db = QdrantVectorDB(storage_path=qdrant_storage_path)
+        self.vector_db = PostgresVectorDB(
+            host=postgres_host,
+            user=postgres_user,
+            password=postgres_password,
+            database=postgres_db
+        )
         self.embeddings = EmbeddingsClient(api_key=openai_api_key)
         self.bm25 = BM25SearchEngine()
         self.rrf = RRFFusion()
+        self._initialize_bm25_index()
+
+    def _initialize_bm25_index(self):
+        """Load existing chunks from PostgreSQL into BM25 index."""
+        try:
+            chunks = self.vector_db.get_all_chunks()
+            if chunks:
+                texts = [chunk['text'] for chunk in chunks]
+                self.bm25.build_index(texts, chunks)
+                print(f"Initialized BM25 with {len(chunks)} existing chunks")
+        except Exception as e:
+            print(f"Note: Could not initialize BM25 from existing chunks: {e}")
 
     def index_chunks(self, chunks: List[Dict[str, Any]]):
         """Index chunks in both Qdrant (vector) and BM25 (sparse).
@@ -29,7 +47,7 @@ class HybridSearchService:
 
         # Build BM25 index
         texts = [chunk['text'] for chunk in chunks]
-        self.bm25.build_index(texts)
+        self.bm25.build_index(texts, chunks)
 
         print("Indexing complete (Qdrant + BM25)")
 
@@ -93,7 +111,7 @@ class HybridSearchService:
     def get_index_stats(self) -> Dict[str, Any]:
         """Get statistics about indexed data."""
         return {
-            'qdrant_documents': self.vector_db.client.count(self.vector_db.collection_name).count,
+            'qdrant_documents': self.vector_db.get_count(),
             'bm25_documents': self.bm25.get_corpus_size(),
             'vector_dimension': self.vector_db.vector_size,
             'embedding_model': self.embeddings.model,
