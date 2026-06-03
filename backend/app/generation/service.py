@@ -1,6 +1,7 @@
 import json
+import os
 from typing import AsyncGenerator, List, Optional
-from anthropic import Anthropic, AsyncAnthropic
+from anthropic import AsyncAnthropic
 
 from .models import Chunk, SourceAttribution
 from .prompts import SYSTEM_PROMPT, format_context, build_prompt
@@ -11,7 +12,16 @@ class GenerationService:
 
     def __init__(self, api_key: Optional[str] = None):
         """Initialize Claude client. Uses ANTHROPIC_API_KEY env var if api_key is None."""
-        self.client = AsyncAnthropic(api_key=api_key) if api_key else AsyncAnthropic()
+        # Use provided api_key, fall back to env var, or None (will error if not set)
+        api_key_to_use = api_key or os.getenv("ANTHROPIC_API_KEY")
+
+        # Initialize with minimal parameters to avoid httpx compatibility issues
+        if api_key_to_use:
+            self.client = AsyncAnthropic(api_key=api_key_to_use)
+        else:
+            # AsyncAnthropic will auto-detect ANTHROPIC_API_KEY from env
+            self.client = AsyncAnthropic()
+
         self.model = "claude-3-5-sonnet-20241022"
 
     def extract_sources(self, chunks: List[Chunk]) -> List[SourceAttribution]:
