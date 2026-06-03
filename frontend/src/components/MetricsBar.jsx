@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { apiClient } from '../utils/api'
 
 export function MetricsBar() {
   const [metrics, setMetrics] = useState(null)
@@ -7,17 +8,8 @@ export function MetricsBar() {
   useEffect(() => {
     const fetchMetrics = async () => {
       try {
-        setMetrics({
-          cache_hit_rate: 0.73,
-          avg_latency_ms: 340,
-          embedding_cache_hits: 45,
-          retrieval_cache_hits: 12,
-          response_cache_hits: 5,
-          total_queries: 89,
-          avg_tokens_in_context: 2450,
-          estimated_cost_usd: 0.0012,
-          uptime_seconds: 3600
-        })
+        const data = await apiClient.getMetrics()
+        setMetrics(data)
         setLoading(false)
       } catch (error) {
         console.error('Failed to fetch metrics:', error)
@@ -26,6 +18,7 @@ export function MetricsBar() {
     }
 
     fetchMetrics()
+    // Update metrics every second (as per plan)
     const interval = setInterval(fetchMetrics, 1000)
 
     return () => clearInterval(interval)

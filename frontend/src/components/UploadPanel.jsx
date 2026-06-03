@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { apiClient } from '../utils/api'
 
-export function UploadPanel() {
+export function UploadPanel({ onUploadSuccess }) {
   const [file, setFile] = useState(null)
   const [metadata, setMetadata] = useState({ department: '', category: '' })
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState('') // 'success' or 'error'
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0])
@@ -20,6 +22,7 @@ export function UploadPanel() {
     e.preventDefault()
     if (!file || !metadata.department || !metadata.category) {
       setMessage('Please select file and fill in metadata')
+      setMessageType('error')
       return
     }
 
@@ -27,16 +30,21 @@ export function UploadPanel() {
     setMessage('')
 
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('department', metadata.department)
-      formData.append('category', metadata.category)
+      const result = await apiClient.ingest(file, metadata)
 
-      setMessage(`[Phase 1] Ready to upload: ${file.name} (${metadata.department}/${metadata.category})`)
+      const successMsg = `✅ Successfully uploaded: ${file.name}
+📚 Created ${result.chunks_created} chunks using ${result.strategy} chunking
+🪙 Total tokens: ${result.tokens_total}
+📅 Uploaded: ${new Date(result.metadata.uploaded_at).toLocaleString()}`
+
+      setMessage(successMsg)
+      setMessageType('success')
       setFile(null)
       setMetadata({ department: '', category: '' })
+      onUploadSuccess?.(result)
     } catch (error) {
-      setMessage(`Error: ${error.message}`)
+      setMessage(`❌ Error: ${error.message}`)
+      setMessageType('error')
     } finally {
       setUploading(false)
     }
@@ -119,7 +127,11 @@ export function UploadPanel() {
       </form>
 
       {message && (
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-blue-900 text-sm">
+        <div className={`mt-4 p-3 rounded text-sm whitespace-pre-wrap ${
+          messageType === 'success'
+            ? 'bg-green-50 border border-green-200 text-green-900'
+            : 'bg-red-50 border border-red-200 text-red-900'
+        }`}>
           {message}
         </div>
       )}

@@ -9,9 +9,20 @@ import { ArchitectureDiagram } from './components/ArchitectureDiagram'
 function App() {
   const [view, setView] = useState('chat')
   const [retrievedSources, setRetrievedSources] = useState([])
+  const [filters, setFilters] = useState({ department: '', category: '', dateFrom: '', dateTo: '' })
 
-  const handleFilterChange = (filters) => {
-    console.log('Filters changed:', filters)
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters)
+    console.log('Filters changed:', newFilters)
+    // TODO: Re-run search with new filters in Phase 2 enhancement
+  }
+
+  const handleSourcesUpdate = (sources) => {
+    setRetrievedSources(sources)
+  }
+
+  const handleUploadSuccess = (result) => {
+    console.log('Document uploaded successfully:', result)
   }
 
   return (
@@ -65,7 +76,7 @@ function App() {
             <FilterBar onFilterChange={handleFilterChange} />
             <div className="flex-1 flex gap-4 overflow-hidden p-4">
               <div className="flex-1 flex flex-col min-w-0">
-                <ChatPanel />
+                <ChatPanel onSourcesUpdate={handleSourcesUpdate} />
               </div>
 
               <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto">
@@ -93,7 +104,7 @@ function App() {
         {view === 'docs' && (
           <div className="h-full overflow-y-auto p-4">
             <div className="max-w-2xl mx-auto">
-              <UploadPanel />
+              <UploadPanel onUploadSuccess={handleUploadSuccess} />
               <div className="mt-6">
                 <h3 className="font-semibold text-gray-900 mb-3">Sample Documents</h3>
                 <p className="text-gray-600 text-sm">
