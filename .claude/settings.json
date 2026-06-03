@@ -186,7 +186,23 @@
       "Bash(taskkill /PID 20912 /F /T)",
       "Bash(python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8001)",
       "Bash(curl -s -H \"X-API-Key: sk-demo-key-12345\" http://localhost:8001/api/user/profile)",
-      "Bash(curl -s http://localhost:8001/api/cache/stats)"
+      "Bash(curl -s http://localhost:8001/api/cache/stats)",
+      "Bash(curl -s http://localhost:8001/api/user/profile -H 'X-API-Key: sk-demo-key-12345')",
+      "Bash(curl -s http://localhost:8001/api/feedback/stats)",
+      "Bash(curl -s http://localhost:8001/api/monitoring/metrics)",
+      "Bash(curl -s http://localhost:8001/api/health/detailed)",
+      "Bash(curl -s http://localhost:3002/)",
+      "Bash(curl -X POST http://localhost:8001/api/ingest -H 'X-API-Key: sk-demo-key-12345' -F file=@c:/Users/rohan.urmude/Desktop/FDE/rag/rag-activity/backend/app/ingest_sample/python_guide.txt -F department=Platform -F category=Troubleshooting)",
+      "Bash(curl -X POST http://localhost:8001/api/ingest -H 'X-API-Key: sk-demo-key-12345' -F file=@/tmp/test_doc.txt -F department=Platform -F category=Troubleshooting)",
+      "Bash(xargs taskkill /PID /F)",
+      "Bash(curl -s -X POST http://localhost:8001/api/ingest -H 'X-API-Key: sk-demo-key-12345' -F file=@/tmp/test_doc.txt -F department=Platform -F category=Troubleshooting)",
+      "Bash(tee /tmp/backend_log.txt)",
+      "Bash(taskkill /PID 7520 /F /T)",
+      "Bash(kill -9 7520)",
+      "Bash(pkill -9 -f uvicorn)",
+      "Bash(python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8002)",
+      "Bash(curl -s http://localhost:8002/health)",
+      "Bash(curl -s -X POST http://localhost:8002/api/ingest -H 'X-API-Key: sk-demo-key-12345' -F file=@/tmp/test_doc.txt -F department=Platform -F category=Troubleshooting)"
     ],
     "additionalDirectories": [
       "c:\\Users\\j.sebastian\\Desktop\\FDE RAG\\backend\\qdrant_storage"

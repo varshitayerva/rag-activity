@@ -3,6 +3,7 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Request
 import logging
 import os
+import io
 from typing import Optional
 from backend.app.database.postgres import db_client
 from backend.app.search.vector_store import get_vector_store
@@ -73,18 +74,32 @@ async def ingest_document(
             category=category
         )
 
-        # Create chunks
-        from backend.app.ingestion.chunker import FixedChunker
-        chunker = FixedChunker(chunk_size=500, overlap=100)
-        chunks = chunker.chunk(text_content)
+        # Create chunks using simple fixed-size chunking
+        chunk_size = 500
+        overlap = 100
+        chunks = []
+
+        sentences = text_content.split('.')
+        current_chunk = ""
+
+        for sentence in sentences:
+            if len(current_chunk) + len(sentence) > chunk_size:
+                if current_chunk:
+                    chunks.append(current_chunk.strip())
+                current_chunk = sentence
+            else:
+                current_chunk += sentence + "."
+
+        if current_chunk:
+            chunks.append(current_chunk.strip())
 
         chunk_list = []
         for i, chunk in enumerate(chunks):
             chunk_dict = {
                 'chunk_index': i,
-                'text': chunk.text if hasattr(chunk, 'text') else str(chunk),
-                'section': chunk.section if hasattr(chunk, 'section') else None,
-                'page_number': chunk.page_number if hasattr(chunk, 'page_number') else None
+                'text': chunk,
+                'section': None,
+                'page_number': None
             }
             chunk_list.append(chunk_dict)
 
