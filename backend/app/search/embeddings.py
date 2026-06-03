@@ -2,13 +2,19 @@ import os
 from openai import OpenAI
 from typing import List, Union
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 class EmbeddingsClient:
     def __init__(self, model: str = "text-embedding-3-small", api_key: str = None):
         """Initialize OpenAI embeddings client.
 
         Args:
             model: OpenAI embedding model (default: text-embedding-3-small, 1536 dims)
-            api_key: OpenAI API key (defaults to OPENAI_API_KEY env var)
+            api_key: OpenAI API key (defaults to OPENAI_API_KEY env var or .env file)
         """
         self.model = model
         self.client = OpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"))

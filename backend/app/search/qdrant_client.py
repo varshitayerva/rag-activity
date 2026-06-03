@@ -5,8 +5,8 @@ from typing import List, Optional, Dict, Any
 
 class QdrantVectorDB:
     def __init__(self, collection_name: str = "technical-support-chunks",
-                 host: str = "localhost", port: int = 6333):
-        self.client = QdrantClient(host=host, port=port)
+                 storage_path: str = "./qdrant_storage"):
+        self.client = QdrantClient(path=storage_path)
         self.collection_name = collection_name
         self.vector_size = 1536  # OpenAI text-embedding-3-small dimension
         self.ensure_collection_exists()

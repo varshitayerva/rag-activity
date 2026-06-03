@@ -8,9 +8,9 @@ from .rrf_fusion import RRFFusion
 class HybridSearchService:
     """Hybrid search combining vector (Qdrant) + sparse (BM25) search with RRF fusion."""
 
-    def __init__(self, qdrant_host: str = "localhost", qdrant_port: int = 6333,
+    def __init__(self, qdrant_storage_path: str = "./qdrant_storage",
                  openai_api_key: str = None):
-        self.vector_db = QdrantVectorDB(host=qdrant_host, port=qdrant_port)
+        self.vector_db = QdrantVectorDB(storage_path=qdrant_storage_path)
         self.embeddings = EmbeddingsClient(api_key=openai_api_key)
         self.bm25 = BM25SearchEngine()
         self.rrf = RRFFusion()

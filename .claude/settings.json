@@ -9,7 +9,12 @@
       "Read(//c/c/Users/j.sebastian/Desktop/**)",
       "Bash(python -m pytest backend/tests/test_hybrid_search.py -q)",
       "Bash(echo \"Tests: $\\(python -m pytest backend/tests/test_hybrid_search.py -q 2>&1)",
-      "Bash(python -m pytest tests/test_hybrid_search.py -q)"
+      "Bash(python -m pytest tests/test_hybrid_search.py -q)",
+      "Bash(python -m py_compile backend/app/search/qdrant_client.py backend/app/search/hybrid_search.py)",
+      "Bash(python load_demo_vectordb.py)",
+      "Bash(PYTHONIOENCODING=utf-8 python load_demo_vectordb.py)",
+      "Bash(PYTHONIOENCODING=utf-8 python verify_vectordb.py)",
+      "Bash(git push *)"
     ]
   }
 }
