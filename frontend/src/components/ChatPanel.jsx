@@ -17,31 +17,25 @@ export function ChatPanel({ onSourcesUpdate }) {
     setLoading(true)
 
     try {
-      // First, search for relevant chunks
+      // Search for relevant chunks
       const searchResults = await apiClient.search(userQuery)
       const chunks = searchResults.results || []
 
       // Notify parent of retrieved sources
       onSourcesUpdate?.(chunks)
 
-      // Add AI response
-      let fullResponse = 'Searching your knowledge base...'
-      setMessages(prev => [...prev, { role: 'assistant', content: fullResponse, sources: chunks }])
+      // Format the response
+      let responseText = ''
+      if (chunks.length === 0) {
+        responseText = `No results found for "${userQuery}". Try searching for:\n• "What is Kubernetes?"\n• "What is Docker?"\n• "Python best practices"`
+      } else {
+        responseText = `Found ${chunks.length} relevant result${chunks.length > 1 ? 's' : ''} for "${userQuery}".\n\nTop matches shown on the right →`
+      }
 
-      // For now, just show search results
-      // In phase 2, this will use streaming generation with Groq
-      const responseText = `Found ${chunks.length} relevant results for your query.\n\nTop matches:\n${chunks.slice(0, 3).map(c => `• ${c.text?.substring(0, 100)}...`).join('\n')}`
-
-      setMessages(prev => {
-        const last = prev[prev.length - 1]
-        if (last?.role === 'assistant') {
-          return [
-            ...prev.slice(0, -1),
-            { role: 'assistant', content: responseText, sources: chunks }
-          ]
-        }
-        return prev
-      })
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: responseText, sources: chunks }
+      ])
     } catch (error) {
       console.error('Error:', error)
       setMessages(prev => [...prev, {
@@ -78,26 +72,29 @@ export function ChatPanel({ onSourcesUpdate }) {
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 Welcome to AI Search
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 max-w-xs">
+              <p className="text-gray-600 dark:text-gray-400 max-w-xs mb-6">
                 Ask questions about Kubernetes, Docker, Python, or any of your indexed documents
               </p>
 
               {/* Quick Suggestions */}
-              <div className="mt-6 space-y-2">
+              <div className="space-y-2">
                 <p className="text-xs text-gray-500 dark:text-gray-500 mb-3">Try asking:</p>
                 {[
                   'What is Kubernetes?',
                   'How do I restart a pod?',
-                  'Docker networking guide',
+                  'What is Docker?',
                   'Python best practices'
                 ].map((suggestion, idx) => (
                   <button
                     key={idx}
                     onClick={() => {
                       setQuery(suggestion)
-                      document.querySelector('form')?.dispatchEvent(
-                        new Event('submit', { bubbles: true })
-                      )
+                      setTimeout(() => {
+                        const form = document.querySelector('form')
+                        if (form) {
+                          form.dispatchEvent(new Event('submit', { bubbles: true }))
+                        }
+                      }, 0)
                     }}
                     className="block w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition"
                   >

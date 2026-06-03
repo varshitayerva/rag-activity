@@ -4,8 +4,7 @@ import { UploadPanel } from './components/UploadPanel'
 import { FilterBar } from './components/FilterBar'
 import { SourceCard } from './components/SourceCard'
 import { MetricsBar } from './components/MetricsBar'
-import { ArchitectureDiagram } from './components/ArchitectureDiagram'
-import { Search, Upload, Zap, Moon, Sun, Menu, X } from 'lucide-react'
+import { Search, Upload, Moon, Sun, Menu, X } from 'lucide-react'
 
 function App() {
   const [view, setView] = useState('chat')
@@ -38,7 +37,6 @@ function App() {
   const navItems = [
     { id: 'chat', label: 'Chat', icon: Search },
     { id: 'docs', label: 'Documents', icon: Upload },
-    { id: 'architecture', label: 'Architecture', icon: Zap },
   ]
 
   return (
@@ -200,21 +198,6 @@ function App() {
               </div>
             )}
 
-            {view === 'architecture' && (
-              <div className="h-full overflow-y-auto p-8 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
-                <div className="max-w-6xl mx-auto">
-                  <div className="mb-8">
-                    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                      System Architecture
-                    </h2>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      RAG System with Real Embeddings & Semantic Search
-                    </p>
-                  </div>
-                  <ArchitectureDiagram />
-                </div>
-              </div>
-            )}
           </div>
         </main>
       </div>
