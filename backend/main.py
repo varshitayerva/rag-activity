@@ -1,15 +1,24 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional, Literal
 import os
+from sqlalchemy.orm import Session
+
+# Member 1: Ingestion imports
+from app.database import get_db, init_db
+from app.ingestion.service import IngestionService
+from app.schemas import IngestRequest, IngestResponse, DocumentResponse, DocumentDetailResponse
+from app.config import get_settings
+
+# Member 2: Search imports
 from app.search.hybrid_search import HybridSearchService
 from app.search.bm25_search import BM25SearchEngine
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="FDE RAG Search API",
-    description="Hybrid search API combining vector (Qdrant) and BM25 search with RRF fusion",
+    title="Technical Support Copilot - Unified RAG",
+    description="End-to-end RAG system: Document ingestion + Hybrid search (vector + BM25 + RRF)",
     version="1.0.0"
 )
 
@@ -22,13 +31,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize search service
+# ============ CONFIG & INITIALIZATION ============
+
+settings = get_settings()
+
+# Member 1: Database initialization
+@app.on_event("startup")
+async def startup():
+    init_db()
+    print("Database initialized (Member 1: Ingestion)")
+
+# Member 2: Search service initialization
 postgres_host = os.getenv("POSTGRES_HOST", "localhost")
 postgres_user = os.getenv("POSTGRES_USER", "postgres")
 postgres_password = os.getenv("POSTGRES_PASSWORD", "1234")
 postgres_db = os.getenv("POSTGRES_DB", "fde_rag")
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
+search_service = None
 try:
     search_service = HybridSearchService(
         postgres_host=postgres_host,
@@ -37,15 +57,14 @@ try:
         postgres_db=postgres_db,
         openai_api_key=openai_api_key
     )
-    print("Search service initialized successfully (using PostgreSQL + pgvector)")
+    print("Search service initialized (Member 2: Hybrid Search with PostgreSQL + pgvector)")
 except Exception as e:
     print(f"Warning: Failed to initialize search service: {e}")
     import traceback
     traceback.print_exc()
-    search_service = None
 
 
-# ============ Request/Response Models ============
+# ============ PYDANTIC MODELS (MEMBER 2: SEARCH) ============
 
 class SearchRequest(BaseModel):
     """Request model for search endpoint."""
@@ -120,28 +139,177 @@ class HealthResponse(BaseModel):
     """Response model for health check."""
     status: str
     service_initialized: bool
+    ingestion_ready: bool
+    search_ready: bool
 
 
-# ============ Endpoints ============
+# ============ ENDPOINTS: HEALTH & STATS ============
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint for both pipelines."""
     return {
         "status": "healthy",
-        "service_initialized": search_service is not None
+        "service_initialized": search_service is not None,
+        "ingestion_ready": True,  # DB is always initialized
+        "search_ready": search_service is not None
     }
 
 
-@app.post("/search", response_model=SearchResponse, tags=["Search"])
+@app.get("/stats", response_model=StatsResponse, tags=["Stats"])
+async def get_stats():
+    """Get statistics about indexed data."""
+    if search_service is None:
+        raise HTTPException(status_code=503, detail="Search service not initialized")
+
+    try:
+        stats = search_service.get_index_stats()
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
+
+
+# ============ ENDPOINTS: MEMBER 1 (INGESTION) ============
+
+@app.post("/api/ingest", response_model=IngestResponse, tags=["Ingestion"])
+async def ingest_document(
+    file: UploadFile = File(...),
+    department: str = None,
+    category: str = None,
+    strategy: str = "semantic",
+    db: Session = Depends(get_db)
+):
+    """
+    Ingest a document (PDF or Markdown) with chunking.
+
+    - **file**: PDF or Markdown document to ingest
+    - **department**: Optional department tag
+    - **category**: Optional category tag
+    - **strategy**: "fixed" (fixed-size chunks) or "semantic" (sentence-aware chunks)
+    """
+    try:
+        file_content = await file.read()
+
+        if not file_content:
+            raise HTTPException(status_code=400, detail="File is empty")
+
+        if file.content_type == "application/pdf" or file.filename.endswith(".pdf"):
+            file_type = "pdf"
+        elif file.content_type in ["text/markdown", "text/plain"] or file.filename.endswith(".md"):
+            file_type = "markdown"
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file type. Use .pdf or .md files"
+            )
+
+        service = IngestionService(db)
+        result = service.ingest_document(
+            file_content=file_content,
+            filename=file.filename,
+            file_type=file_type,
+            department=department,
+            category=category,
+            strategy=strategy
+        )
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/documents", response_model=list[DocumentResponse], tags=["Ingestion"])
+async def list_documents(db: Session = Depends(get_db)):
+    """List all ingested documents."""
+    try:
+        service = IngestionService(db)
+        documents = service.list_documents()
+        return documents
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/documents/{doc_id}", response_model=DocumentDetailResponse, tags=["Ingestion"])
+async def get_document(doc_id: str, db: Session = Depends(get_db)):
+    """Get details of a specific document and its chunks."""
+    try:
+        service = IngestionService(db)
+        document = service.get_document(doc_id)
+
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        return document
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/ingest/compare", tags=["Ingestion"])
+async def compare_chunking_strategies(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Compare fixed vs semantic chunking strategies.
+
+    Returns metrics on chunk count, token usage, and token reduction percentage.
+    """
+    try:
+        file_content = await file.read()
+
+        if not file_content:
+            raise HTTPException(status_code=400, detail="File is empty")
+
+        file_type = "pdf" if file.content_type == "application/pdf" else "markdown"
+        service = IngestionService(db)
+
+        fixed_result = service.ingest_document(
+            file_content=file_content,
+            filename=f"{file.filename}_fixed",
+            file_type=file_type,
+            strategy="fixed"
+        )
+
+        semantic_result = service.ingest_document(
+            file_content=file_content,
+            filename=f"{file.filename}_semantic",
+            file_type=file_type,
+            strategy="semantic"
+        )
+
+        return {
+            "fixed": fixed_result,
+            "semantic": semantic_result,
+            "comparison": {
+                "fixed_chunks": fixed_result["chunks_created"],
+                "semantic_chunks": semantic_result["chunks_created"],
+                "fixed_tokens": fixed_result["tokens_total"],
+                "semantic_tokens": semantic_result["tokens_total"],
+                "token_reduction": f"{((fixed_result['tokens_total'] - semantic_result['tokens_total']) / fixed_result['tokens_total'] * 100):.1f}%"
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============ ENDPOINTS: MEMBER 2 (SEARCH) ============
+
+@app.post("/api/search", response_model=SearchResponse, tags=["Search"])
 async def search(request: SearchRequest):
     """
-    Perform search with configurable search type.
+    Perform hybrid search combining vector + BM25 + RRF fusion.
 
     - **query**: Search query string
     - **top_k**: Number of results (1-100)
     - **search_type**: "vector" (semantic), "bm25" (keyword), or "hybrid" (RRF fusion, default)
-    - **metadata_filter**: Optional metadata filters
+    - **metadata_filter**: Optional metadata filters (department, category, etc.)
     """
     if search_service is None:
         raise HTTPException(status_code=503, detail="Search service not initialized")
@@ -206,10 +374,8 @@ async def search(request: SearchRequest):
         print(f"===== SEARCH ERROR =====")
         print(f"Error: {e}")
         print(f"Type: {type(e)}")
-        print(f"Result before response: {result if 'result' in locals() else 'No result'}")
         traceback.print_exc()
         print(f"========================")
-        # Return detailed error
         return {
             "query": request.query,
             "chunks": [],
@@ -220,21 +386,18 @@ async def search(request: SearchRequest):
         }
 
 
-@app.post("/index", response_model=IndexResponse, tags=["Indexing"])
+@app.post("/api/index", response_model=IndexResponse, tags=["Search"])
 async def index_chunks(request: IndexRequest):
     """
-    Index new chunks in both Qdrant (vector) and BM25 (keyword).
+    Index new chunks in both vector DB and BM25.
 
-    Chunks will be embedded using OpenAI embeddings and indexed for hybrid search.
+    Chunks will be embedded and indexed for hybrid search.
     """
     if search_service is None:
         raise HTTPException(status_code=503, detail="Search service not initialized")
 
     try:
-        # Convert Pydantic models to dicts for the service
         chunks = [chunk.dict() for chunk in request.chunks]
-
-        # Index chunks (synchronous operation)
         search_service.index_chunks(chunks)
 
         return {
@@ -245,20 +408,7 @@ async def index_chunks(request: IndexRequest):
         raise HTTPException(status_code=500, detail=f"Indexing failed: {str(e)}")
 
 
-@app.get("/stats", response_model=StatsResponse, tags=["Stats"])
-async def get_stats():
-    """Get statistics about the indexed data."""
-    if search_service is None:
-        raise HTTPException(status_code=503, detail="Search service not initialized")
-
-    try:
-        stats = search_service.get_index_stats()
-        return stats
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
-
-
-@app.post("/load-demo", tags=["Demo"])
+@app.post("/api/load-demo", tags=["Search"])
 async def load_demo_data():
     """Load demo data for testing (uses mock embeddings, no OpenAI needed)."""
     if search_service is None:
@@ -273,22 +423,18 @@ async def load_demo_data():
     ]
 
     try:
-        # Generate mock embeddings
         embeddings = []
         for chunk in demo_chunks:
             embedding = search_service.embeddings._mock_embedding(chunk['text'])
             embeddings.append(embedding)
 
-        # Add to PostgreSQL
         search_service.vector_db.add_points(demo_chunks, embeddings)
-
-        # Build BM25 index
         texts = [chunk['text'] for chunk in demo_chunks]
         search_service.bm25.build_index(texts, demo_chunks)
 
         return {
             "status": "success",
-            "message": "Demo data loaded successfully to PostgreSQL",
+            "message": "Demo data loaded successfully",
             "chunks_loaded": len(demo_chunks)
         }
     except Exception as e:
@@ -297,7 +443,7 @@ async def load_demo_data():
         raise HTTPException(status_code=500, detail=f"Failed to load demo data: {str(e)}")
 
 
-@app.delete("/index", tags=["Indexing"])
+@app.delete("/api/index", tags=["Search"])
 async def clear_index():
     """
     Delete and reset the entire search index.
@@ -309,7 +455,7 @@ async def clear_index():
 
     try:
         search_service.vector_db.delete_all()
-        search_service.bm25 = BM25SearchEngine()  # Reset BM25 index
+        search_service.bm25 = BM25SearchEngine()
         return {
             "status": "success",
             "message": "Index cleared successfully"
@@ -318,17 +464,7 @@ async def clear_index():
         raise HTTPException(status_code=500, detail=f"Failed to clear index: {str(e)}")
 
 
-# ============ Startup/Shutdown ============
-
-@app.on_event("startup")
-async def startup_event():
-    """Log startup information."""
-    print(f"FastAPI server starting...")
-    if search_service:
-        print(f"Search service initialized with PostgreSQL database: {postgres_db}")
-    else:
-        print("Warning: Search service not initialized")
-
+# ============ SHUTDOWN ============
 
 @app.on_event("shutdown")
 async def shutdown_event():
