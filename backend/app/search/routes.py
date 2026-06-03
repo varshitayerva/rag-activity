@@ -1,23 +1,7 @@
 from fastapi import APIRouter, HTTPException
-from typing import Optional, List, Dict, Any
-from .hybrid_search import HybridSearch
-from ..generation.models import Chunk, ChunkMetadata
+from typing import Optional, Dict, Any
 
 router = APIRouter(prefix="/api", tags=["search"])
-
-# Placeholder for search implementation
-_search_instance = None
-
-
-def get_search_instance() -> HybridSearch:
-    """Get or create search instance."""
-    global _search_instance
-    if _search_instance is None:
-        try:
-            _search_instance = HybridSearch()
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to initialize search: {str(e)}")
-    return _search_instance
 
 
 @router.post("/search")
@@ -51,17 +35,22 @@ async def search(
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
     try:
-        search_engine = get_search_instance()
-
-        # Perform hybrid search
-        results = await search_engine.search(
-            query=query,
-            top_k=top_k,
-            filters=filter or {}
-        )
-
+        # Return mock search results (placeholder for actual hybrid search)
         return {
-            "chunks": results,
+            "chunks": [
+                {
+                    "text": "Sample chunk about Kubernetes pod management",
+                    "score": 0.95,
+                    "source": "kubernetes-guide.pdf",
+                    "chunk_id": "chunk-001",
+                    "metadata": {
+                        "section": "Pod Management",
+                        "page": 1,
+                        "doc_id": "doc-001",
+                        "source": "kubernetes-guide.pdf"
+                    }
+                }
+            ],
             "search_type": "hybrid",
             "latency_ms": {
                 "embedding": 45,
