@@ -62,7 +62,7 @@ export const apiClient = {
     }
   },
 
-  async ingest(file, metadata = {}) {
+  async ingest(file, metadata = {}, apiKey = 'sk-demo-key-12345') {
     try {
       const formData = new FormData()
       formData.append('file', file)
@@ -71,6 +71,9 @@ export const apiClient = {
 
       const response = await fetch(`${API_URL}/api/ingest`, {
         method: 'POST',
+        headers: {
+          'X-API-Key': apiKey
+        },
         body: formData
       })
 
