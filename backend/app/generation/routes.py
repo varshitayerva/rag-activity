@@ -1,4 +1,5 @@
 import os
+import time
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse, JSONResponse
 import json
@@ -6,6 +7,7 @@ from typing import AsyncGenerator, Optional
 
 from .models import GenerateRequest
 from .service import GenerationService
+from backend.app.cache.metrics import MetricsCollector
 
 router = APIRouter(prefix="/api", tags=["generation"])
 
@@ -67,6 +69,7 @@ async def generate(
         raise HTTPException(status_code=400, detail="At least one chunk is required")
 
     try:
+        start_time = time.time()
         service = get_generation_service(provider)
 
         if request.stream:
@@ -77,11 +80,20 @@ async def generate(
             )
         else:
             result = await service.generate(request.query, request.chunks)
+            # Record generation metrics
+            latency_ms = int((time.time() - start_time) * 1000)
+            MetricsCollector.record_latency(latency_ms)
+            MetricsCollector.record_tokens(
+                result.get("tokens", {}).get("input_tokens", 0),
+                result.get("tokens", {}).get("output_tokens", 0)
+            )
+            MetricsCollector.record_response_hit()
             return JSONResponse(result)
 
     except HTTPException:
         raise
     except Exception as e:
+        MetricsCollector.record_response_miss()
         raise HTTPException(status_code=500, detail=str(e))
 
 

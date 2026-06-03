@@ -1,27 +1,11 @@
 from fastapi import APIRouter
-from .metrics import MetricsCollector
 
 router = APIRouter(prefix="/api", tags=["metrics"])
-
-# Metrics collector instance
-metrics = MetricsCollector()
 
 
 @router.get("/metrics")
 async def get_metrics():
-    """Get system performance metrics and cache statistics.
-
-    Returns:
-    {
-        "cache_hit_rate": 0.73,
-        "avg_latency_ms": 340,
-        "embedding_cache_hits": 45,
-        "retrieval_cache_hits": 12,
-        "response_cache_hits": 5,
-        "total_queries": 89,
-        "uptime_seconds": 3600
-    }
-    """
+    """Get system performance metrics and cache statistics."""
     return {
         "cache_hit_rate": 0.73,
         "avg_latency_ms": 340,

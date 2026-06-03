@@ -5,6 +5,7 @@ from backend.app.ingestion.parser import get_parser
 from backend.app.ingestion.chunker import FixedChunker, SemanticChunker, Chunk
 from backend.app.ingestion.metadata import MetadataExtractor
 from backend.app.models import Document, Chunk as ChunkModel
+from backend.app.cache.metrics import MetricsCollector
 
 
 class IngestionService:
@@ -12,6 +13,16 @@ class IngestionService:
         self.db = db
         self.fixed_chunker = FixedChunker(chunk_size=500, overlap=100)
         self.semantic_chunker = SemanticChunker(min_chunk_length=100)
+        self.hybrid_search = None
+        self._init_search_index()
+
+    def _init_search_index(self):
+        """Initialize hybrid search service if available."""
+        try:
+            from backend.app.search.hybrid_search import HybridSearchService
+            self.hybrid_search = HybridSearchService()
+        except Exception as e:
+            print(f"Note: Search indexing unavailable: {e}")
 
     def ingest_document(
         self,
@@ -77,6 +88,30 @@ class IngestionService:
             self.db.add(chunk_model)
 
         self.db.commit()
+
+        # Index chunks in search indices (BM25 + Vector DB)
+        if self.hybrid_search:
+            try:
+                chunk_dicts = [
+                    {
+                        "chunk_id": c.id,
+                        "text": c.text,
+                        "doc_id": doc_id,
+                        "section": c.section,
+                        "page_number": c.page_number,
+                        "metadata": {
+                            "department": department or "General",
+                            "category": category or "Uncategorized",
+                            "filename": filename
+                        }
+                    }
+                    for c in chunk_models
+                ]
+                self.hybrid_search.index_chunks(chunk_dicts)
+                MetricsCollector.record_embedding_hit()
+            except Exception as e:
+                print(f"Warning: Could not index chunks to search: {e}")
+                MetricsCollector.record_embedding_miss()
 
         return {
             "doc_id": doc_id,
