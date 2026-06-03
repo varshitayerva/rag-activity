@@ -1,6 +1,24 @@
 version: '3.9'
 
 services:
+  # PostgreSQL 15 for metadata storage
+  postgres:
+    image: postgres:15-alpine
+    container_name: rag-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-rag_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   # Redis 7 for 3-layer caching
   redis:
     image: redis:7-alpine
@@ -16,24 +34,6 @@ services:
       timeout: 3s
       retries: 5
 
-  # PostgreSQL 15 for metadata storage
-  postgres:
-    image: postgres:15-alpine
-    container_name: rag-postgres
-    environment:
-      POSTGRES_DB: rag_db
-      POSTGRES_USER: rag_user
-      POSTGRES_PASSWORD: rag_password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rag_user -d rag_db"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
   # Qdrant vector database
   qdrant:
     image: qdrant/qdrant:latest
@@ -42,7 +42,7 @@ services:
       - "6333:6333"
       - "6334:6334"
     environment:
-      QDRANT_API_KEY: qdrant_key_12345
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-qdrant_key_12345}
     volumes:
       - qdrant_data:/qdrant/storage
     healthcheck:
@@ -60,21 +60,27 @@ services:
     ports:
       - "8000:8000"
     environment:
-      REDIS_URL: redis://redis:6379
-      DATABASE_URL: postgresql://rag_user:rag_password@postgres:5432/rag_db
-      QDRANT_URL: http://qdrant:6333
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/rag_db}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-qdrant_key_12345}
+      HF_TOKEN: ${HF_TOKEN}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GENERATION_PROVIDER: ${GENERATION_PROVIDER:-huggingface}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DEBUG: ${DEBUG:-true}
     depends_on:
-      redis:
-        condition: service_healthy
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       qdrant:
         condition: service_healthy
     volumes:
       - ./backend:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
 
   # Frontend (React + Vite)
   frontend:
@@ -83,15 +89,23 @@ services:
       dockerfile: Dockerfile
     container_name: rag-frontend
     ports:
+      - "3000:3000"
       - "5173:5173"
     environment:
-      VITE_API_URL: http://localhost:8000
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+      VITE_APP_NAME: ${VITE_APP_NAME:-Technical Support Copilot}
+      VITE_ENABLE_METRICS: ${VITE_ENABLE_METRICS:-true}
     depends_on:
       - backend
     volumes:
       - ./frontend:/app
+      - /app/node_modules
 
 volumes:
-  redis_data:
   postgres_data:
+  redis_data:
   qdrant_data:
+
+networks:
+  default:
+    name: rag_network

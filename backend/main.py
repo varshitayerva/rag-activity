@@ -7,14 +7,14 @@ from backend.app.generation import router as generation_router
 
 app = FastAPI(
     title="Technical Support Copilot RAG",
-    description="Production RAG system with semantic search and streaming generation",
+    description="Production-grade RAG system with semantic search and streaming generation",
     version="0.1.0",
 )
 
-# CORS middleware for frontend
+# CORS middleware - allow frontend and all development origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000", "http://localhost:5173", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -27,7 +27,7 @@ app.include_router(generation_router)
 @app.get("/health")
 async def health():
     """Health check endpoint."""
-    provider = os.getenv("GENERATION_PROVIDER", "groq")
+    provider = os.getenv("GENERATION_PROVIDER", "huggingface")
     return {
         "status": "ok",
         "version": "0.1.0",
@@ -38,7 +38,7 @@ async def health():
 @app.get("/")
 async def root():
     """Root endpoint with service info."""
-    provider = os.getenv("GENERATION_PROVIDER", "groq")
+    provider = os.getenv("GENERATION_PROVIDER", "huggingface")
 
     return {
         "service": "Technical Support Copilot RAG",
@@ -46,10 +46,11 @@ async def root():
         "provider": provider,
         "endpoints": {
             "health": "GET /health",
-            "generate": "POST /api/generate?provider=groq|anthropic|ollama",
+            "generate": "POST /api/generate?provider=huggingface|groq|anthropic|ollama",
             "config": "GET /api/config",
         },
         "setup": {
+            "huggingface": "set HF_TOKEN=your-token (free at https://huggingface.co/settings/tokens)",
             "groq": "set GROQ_API_KEY=your-key (free at https://console.groq.com/)",
             "anthropic": "set ANTHROPIC_API_KEY=your-key (free at https://console.anthropic.com/)",
             "ollama": "Install from https://ollama.ai/ and run: ollama serve",
