@@ -30,18 +30,20 @@ async def ingest_document(
     db: Session = Depends(get_db)
 ):
     try:
-        if file.content_type not in ["application/pdf", "text/markdown", "text/plain"]:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unsupported file type: {file.content_type}"
-            )
-
         file_content = await file.read()
 
         if not file_content:
             raise HTTPException(status_code=400, detail="File is empty")
 
-        file_type = "pdf" if file.content_type == "application/pdf" else "markdown"
+        if file.content_type == "application/pdf" or file.filename.endswith(".pdf"):
+            file_type = "pdf"
+        elif file.content_type in ["text/markdown", "text/plain"] or file.filename.endswith(".md"):
+            file_type = "markdown"
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file type. Use .pdf or .md files"
+            )
 
         service = IngestionService(db)
         result = service.ingest_document(

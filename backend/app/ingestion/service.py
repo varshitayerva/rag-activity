@@ -53,7 +53,7 @@ class IngestionService:
             total_tokens=total_tokens,
             chunks_created=len(chunks),
             chunking_strategy=strategy,
-            metadata=metadata
+            doc_metadata=metadata
         )
         self.db.add(doc)
         self.db.flush()
@@ -68,7 +68,7 @@ class IngestionService:
                 section=chunk.section,
                 page_number=chunk.page_number,
                 token_count=chunk.token_count,
-                metadata={
+                chunk_metadata={
                     "department": department or "General",
                     "category": category or "Uncategorized"
                 }
@@ -109,7 +109,7 @@ class IngestionService:
             "filename": doc.filename,
             "chunks_created": doc.chunks_created,
             "strategy": doc.chunking_strategy,
-            "tokens_total": doc.total_tokens,
+            "tokens_total": int(doc.total_tokens),
             "page_count": doc.page_count,
             "chunks": [
                 {
@@ -117,7 +117,7 @@ class IngestionService:
                     "text": c.text,
                     "section": c.section,
                     "page_number": c.page_number,
-                    "token_count": c.token_count
+                    "token_count": int(c.token_count)
                 }
                 for c in chunks
             ]
@@ -131,7 +131,7 @@ class IngestionService:
                 "filename": doc.filename,
                 "chunks_created": doc.chunks_created,
                 "strategy": doc.chunking_strategy,
-                "tokens_total": doc.total_tokens,
+                "tokens_total": int(doc.total_tokens),
                 "uploaded_at": doc.uploaded_at.isoformat(),
                 "department": doc.department,
                 "category": doc.category

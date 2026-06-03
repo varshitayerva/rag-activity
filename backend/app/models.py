@@ -18,7 +18,7 @@ class Document(Base):
     chunks_created = Column(Integer, default=0)
     chunking_strategy = Column(String(50), default="semantic")
     uploaded_at = Column(DateTime, default=datetime.utcnow)
-    metadata = Column(JSON, default={})
+    doc_metadata = Column(JSON, default={})
 
 class Chunk(Base):
     __tablename__ = "chunks"
@@ -31,5 +31,5 @@ class Chunk(Base):
     page_number = Column(Integer)
     token_count = Column(Integer, default=0)
     embedding_vector = Column(JSON)
-    metadata = Column(JSON, default={})
+    chunk_metadata = Column(JSON, default={})
     created_at = Column(DateTime, default=datetime.utcnow)

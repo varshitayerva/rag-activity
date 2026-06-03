@@ -13,7 +13,7 @@ class Chunk:
     token_count: int = 0
 
     def estimate_tokens(self):
-        self.token_count = len(self.text.split()) * 1.3
+        self.token_count = int(len(self.text.split()) * 1.3)
 
 
 class Chunker(ABC):
@@ -65,7 +65,7 @@ class SemanticChunker(Chunker):
                 continue
 
             if self._is_section_header(sentence):
-                if current_chunk and len(' '.join(current_chunk)) > self.min_chunk_length:
+                if current_chunk:
                     chunk_text = ' '.join(current_chunk)
                     chunk = Chunk(
                         text=chunk_text,
@@ -101,7 +101,7 @@ class SemanticChunker(Chunker):
             if sentence.endswith('---'):
                 page_num += 1
 
-        if current_chunk and len(' '.join(current_chunk)) > self.min_chunk_length:
+        if current_chunk:
             chunk_text = ' '.join(current_chunk)
             chunk = Chunk(
                 text=chunk_text,
