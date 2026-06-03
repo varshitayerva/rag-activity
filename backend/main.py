@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-from app.generation import router as generation_router
+from backend.app.generation import router as generation_router
 
 app = FastAPI(
     title="Technical Support Copilot RAG",

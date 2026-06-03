@@ -2,8 +2,12 @@ import json
 import os
 from typing import AsyncGenerator, List, Optional
 
+from dotenv import load_dotenv
+
 from .models import Chunk, SourceAttribution
 from .prompts import SYSTEM_PROMPT, format_context, build_prompt
+
+load_dotenv()
 
 
 class GenerationService:
@@ -164,28 +168,30 @@ class GenerationService:
 
     async def _stream_huggingface(self, prompt: str) -> AsyncGenerator[str, None]:
         """Stream from Hugging Face Inference API (OpenAI-compatible)."""
-        async with self.client.messages.stream(
+        stream = await self.client.chat.completions.create(
             model=self.model,
             max_tokens=1024,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        ) as stream:
-            input_tokens = 0
-            output_tokens = 0
+            stream=True,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt}
+            ],
+        )
 
-            async for text in stream.text_stream:
-                if text:
-                    yield json.dumps({"type": "token", "content": text})
-                    yield "\n"
+        input_tokens = 0
+        output_tokens = 0
 
-            final_message = await stream.get_final_message()
-            input_tokens = final_message.usage.input_tokens
-            output_tokens = final_message.usage.output_tokens
+        async for chunk in stream:
+            if chunk.choices[0].delta.content:
+                text = chunk.choices[0].delta.content
+                yield json.dumps({"type": "token", "content": text})
+                yield "\n"
+                output_tokens += 1
 
         yield json.dumps(
             {
                 "type": "done",
-                "input_tokens": input_tokens,
+                "input_tokens": len(prompt.split()),
                 "output_tokens": output_tokens,
             }
         )
@@ -305,18 +311,20 @@ class GenerationService:
 
     async def _generate_huggingface(self, prompt: str, sources: List[SourceAttribution]) -> dict:
         """Generate from Hugging Face Inference API."""
-        message = await self.client.messages.create(
+        message = await self.client.chat.completions.create(
             model=self.model,
             max_tokens=1024,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt}
+            ],
         )
 
         return {
             "response": message.choices[0].message.content,
             "sources": [s.model_dump() for s in sources],
-            "input_tokens": message.usage.input_tokens,
-            "output_tokens": message.usage.output_tokens,
+            "input_tokens": message.usage.prompt_tokens,
+            "output_tokens": message.usage.completion_tokens,
         }
 
     async def _generate_groq(self, prompt: str, sources: List[SourceAttribution]) -> dict:
