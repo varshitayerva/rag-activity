@@ -338,7 +338,8 @@ After running tests, verify:
 cat .env
 
 # Should show:
-# HF_TOKEN=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
+# HF_TOKEN=hf_your_token_here
+# Get token from: https://huggingface.co/settings/tokens
 ```
 
 ### "Connection refused"
