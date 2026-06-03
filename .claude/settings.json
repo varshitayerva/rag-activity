@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python test_hybrid_search_demo.py)",
+      "Bash(pip install *)",
+      "Bash(PYTHONIOENCODING=utf-8 python test_hybrid_search_demo.py)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest tests/test_hybrid_search.py -v)",
+      "Bash(cd /c/Users/j.sebastian/Desktop/\"FDE RAG\" && find . -type f -name \"*.py\" -o -name \"*.yml\" -o -name \"*.txt\" -o -name \"*.md\" | sort)",
+      "Read(//c/c/Users/j.sebastian/Desktop/**)",
+      "Bash(python -m pytest backend/tests/test_hybrid_search.py -q)",
+      "Bash(echo \"Tests: $\\(python -m pytest backend/tests/test_hybrid_search.py -q 2>&1)",
+      "Bash(python -m pytest tests/test_hybrid_search.py -q)"
+    ]
+  }
+}
