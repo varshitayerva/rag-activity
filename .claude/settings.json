@@ -79,7 +79,10 @@
       "Bash(curl -s -X POST http://localhost:9999/search -H 'Content-Type: application/json' -d '{\"query\":\"kubernetes pod crash\",\"top_k\":2,\"search_type\":\"bm25\"}')",
       "Bash(curl -s -X POST http://localhost:9999/search -H 'Content-Type: application/json' -d '{\"query\":\"connection database error\",\"top_k\":2,\"search_type\":\"vector\"}')",
       "Bash(curl -s -X POST http://localhost:9999/search -H 'Content-Type: application/json' -d '{\"query\":\"memory debugging issue\",\"top_k\":2,\"search_type\":\"hybrid\"}')",
-      "Bash(curl -s http://localhost:8000/api/metrics)"
+      "Bash(curl -s http://localhost:8000/api/metrics)",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(timeout 5 python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000)",
+      "Bash(python test_workflow.py)"
     ],
     "additionalDirectories": [
       "c:\\Users\\j.sebastian\\Desktop\\FDE RAG\\backend\\qdrant_storage"

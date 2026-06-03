@@ -1,16 +1,26 @@
 import time
+import os
 from typing import List, Dict, Any, Optional
+from dotenv import load_dotenv
 from .postgres_client import PostgresVectorDB
 from .embeddings import EmbeddingsClient
 from .bm25_search import BM25SearchEngine
 from .rrf_fusion import RRFFusion
 
+load_dotenv()
+
 class HybridSearchService:
     """Hybrid search combining vector (PostgreSQL+pgvector) + sparse (BM25) search with RRF fusion."""
 
-    def __init__(self, postgres_host: str = "localhost", postgres_user: str = "postgres",
-                 postgres_password: str = "1234", postgres_db: str = "fde_rag",
+    def __init__(self, postgres_host: str = None, postgres_user: str = None,
+                 postgres_password: str = None, postgres_db: str = None,
                  openai_api_key: str = None):
+        # Use environment variables if not provided
+        postgres_host = postgres_host or os.getenv("DB_HOST", "localhost")
+        postgres_user = postgres_user or os.getenv("DB_USER", "postgres")
+        postgres_password = postgres_password or os.getenv("DB_PASSWORD", "postgres")
+        postgres_db = postgres_db or os.getenv("DB_NAME", "fde_rag")
+
         self.vector_db = PostgresVectorDB(
             host=postgres_host,
             user=postgres_user,
@@ -34,22 +44,22 @@ class HybridSearchService:
             print(f"Note: Could not initialize BM25 from existing chunks: {e}")
 
     def index_chunks(self, chunks: List[Dict[str, Any]]):
-        """Index chunks in both Qdrant (vector) and BM25 (sparse).
+        """Index chunks in both PostgreSQL+pgvector (vector) and BM25 (sparse).
 
         Args:
             chunks: List of chunk dicts with 'chunk_id', 'text', 'doc_id', etc.
         """
         print(f"Indexing {len(chunks)} chunks...")
 
-        # Embed chunks and add to Qdrant
+        # Embed chunks and add to PostgreSQL with pgvector
         embeddings = self.embeddings.embed_chunks(chunks)
         self.vector_db.add_points(chunks, embeddings)
 
-        # Build BM25 index
+        # Build BM25 index for full-text search
         texts = [chunk['text'] for chunk in chunks]
         self.bm25.build_index(texts, chunks)
 
-        print("Indexing complete (Qdrant + BM25)")
+        print("Indexing complete (PostgreSQL pgvector + BM25)")
 
     async def search(self, query: str, top_k: int = 20,
                     metadata_filter: Dict[str, Any] = None) -> Dict[str, Any]:
@@ -71,7 +81,7 @@ class HybridSearchService:
         query_embedding = self.embeddings.embed_query(query)
         latency['embedding_ms'] = int((time.time() - embed_start) * 1000)
 
-        # Stage 2: Vector search in Qdrant
+        # Stage 2: Vector search in PostgreSQL with pgvector
         vector_start = time.time()
         vector_results = self.vector_db.search(query_embedding, top_k=50)
         latency['vector_search_ms'] = int((time.time() - vector_start) * 1000)
@@ -111,7 +121,7 @@ class HybridSearchService:
     def get_index_stats(self) -> Dict[str, Any]:
         """Get statistics about indexed data."""
         return {
-            'qdrant_documents': self.vector_db.get_count(),
+            'postgres_vectors': self.vector_db.get_count(),
             'bm25_documents': self.bm25.get_corpus_size(),
             'vector_dimension': self.vector_db.vector_size,
             'embedding_model': self.embeddings.model,
