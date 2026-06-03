@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 from .models import Chunk, SourceAttribution
 from .prompts import SYSTEM_PROMPT, format_context, build_prompt
+from .confidence import ConfidenceScorer
 
 load_dotenv()
 
@@ -38,6 +39,7 @@ class GenerationService:
             OLLAMA_BASE_URL - for Ollama (default: http://localhost:11434)
         """
         self.provider = provider.lower()
+        self.confidence_scorer = ConfidenceScorer()
 
         if self.provider == "huggingface":
             self._init_huggingface(api_key)
@@ -301,13 +303,29 @@ class GenerationService:
         prompt = build_prompt(query, context)
 
         if self.provider == "huggingface":
-            return await self._generate_huggingface(prompt, sources)
+            result = await self._generate_huggingface(prompt, sources)
         elif self.provider == "groq":
-            return await self._generate_groq(prompt, sources)
+            result = await self._generate_groq(prompt, sources)
         elif self.provider == "anthropic":
-            return await self._generate_anthropic(prompt, sources)
+            result = await self._generate_anthropic(prompt, sources)
         elif self.provider == "ollama":
-            return await self._generate_ollama(prompt, sources)
+            result = await self._generate_ollama(prompt, sources)
+
+        # Add confidence scoring
+        response_text = result.get("response", "")
+        chunks_data = [chunk.model_dump() for chunk in chunks]
+        confidence_metrics = self.confidence_scorer.score(response_text, chunks_data, query)
+
+        result["confidence"] = {
+            "overall_confidence": confidence_metrics.overall_confidence,
+            "source_coverage": confidence_metrics.source_coverage,
+            "hallucination_risk": confidence_metrics.hallucination_risk,
+            "answer_completeness": confidence_metrics.answer_completeness,
+            "uncertainty_markers": confidence_metrics.uncertainty_markers,
+            "confidence_level": self.confidence_scorer.confidence_level(confidence_metrics.overall_confidence),
+        }
+
+        return result
 
     async def _generate_huggingface(self, prompt: str, sources: List[SourceAttribution]) -> dict:
         """Generate from Hugging Face Inference API."""

@@ -32,3 +32,12 @@ class SourceAttribution(BaseModel):
 class TokenUsage(BaseModel):
     input_tokens: int
     output_tokens: int
+
+
+class ConfidenceScore(BaseModel):
+    overall_confidence: float
+    source_coverage: float
+    hallucination_risk: float
+    answer_completeness: float
+    uncertainty_markers: int
+    confidence_level: str
