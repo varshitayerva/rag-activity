@@ -43,7 +43,36 @@ $pgExt = Join-Path $pgPath "share\extension"
 Write-Host ""
 Write-Host "[Step 2] Downloading pgvector..." -ForegroundColor Cyan
 
-$downloadUrl = "https://github.com/pgvector/pgvector/releases/download/v0.5.1/pgvector-0.5.1-postgresql-$pgVersion-windows-x64.zip"
+# Try multiple versions for compatibility
+$versions = @("0.5.1", "0.5.0", "0.4.4", "0.4.3")
+$downloadUrl = $null
+
+foreach ($version in $versions) {
+    $testUrl = "https://github.com/pgvector/pgvector/releases/download/v$version/pgvector-$version-postgresql-$pgVersion-windows-x64.zip"
+    Write-Host "Trying version $version..."
+
+    try {
+        $response = Invoke-WebRequest -Uri $testUrl -UseBasicParsing -Method Head -TimeoutSec 5 -ErrorAction SilentlyContinue
+        if ($response.StatusCode -eq 200) {
+            $downloadUrl = $testUrl
+            Write-Host "Found compatible version: $version" -ForegroundColor Green
+            break
+        }
+    } catch {
+        # Continue to next version
+    }
+}
+
+if (-not $downloadUrl) {
+    Write-Host "Compatible pgvector binary not found for PostgreSQL $pgVersion" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Available options:" -ForegroundColor Cyan
+    Write-Host "1. Download manually: https://github.com/pgvector/pgvector/releases" -ForegroundColor White
+    Write-Host "2. Use alternative: Install PostgreSQL 15 or 16 (pgvector has more support)" -ForegroundColor White
+    Write-Host "3. Build from source: https://github.com/pgvector/pgvector" -ForegroundColor White
+    Write-Host ""
+    exit 1
+}
 $downloadFile = Join-Path $env:TEMP "pgvector.zip"
 
 try {
