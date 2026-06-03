@@ -74,10 +74,10 @@ class PostgresClient:
                 conn.commit()
                 cursor.close()
 
-            print("✅ Database initialized successfully")
+            logger.info("Database initialized successfully")
             return True
         except Exception as e:
-            print(f"❌ Database initialization failed: {e}")
+            logger.error(f"Database initialization failed: {e}")
             return False
 
     # Document operations

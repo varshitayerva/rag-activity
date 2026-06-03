@@ -20,7 +20,7 @@ export function FeedbackPanel({ apiKey = 'sk-demo-key-12345' }) {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/feedback/stats')
+      const response = await fetch('http://localhost:8001/api/feedback/stats')
       const data = await response.json()
       setStats(data.stats)
       setTrends(data.trends)
@@ -35,7 +35,7 @@ export function FeedbackPanel({ apiKey = 'sk-demo-key-12345' }) {
     setMessage('')
 
     try {
-      const response = await fetch('http://localhost:8000/api/feedback/submit', {
+      const response = await fetch('http://localhost:8001/api/feedback/submit', {
         method: 'POST',
         headers: {
           'X-API-Key': apiKey,

@@ -15,7 +15,7 @@ export function CacheDashboard({ apiKey = 'sk-demo-key-12345' }) {
 
   const fetchCacheStats = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/cache/stats', {
+      const response = await fetch('http://localhost:8001/api/cache/stats', {
         headers: { 'X-API-Key': apiKey }
       })
       const data = await response.json()
@@ -31,7 +31,7 @@ export function CacheDashboard({ apiKey = 'sk-demo-key-12345' }) {
     setClearing(true)
     setMessage('')
     try {
-      const response = await fetch('http://localhost:8000/api/cache/clear', {
+      const response = await fetch('http://localhost:8001/api/cache/clear', {
         method: 'POST',
         headers: { 'X-API-Key': apiKey }
       })

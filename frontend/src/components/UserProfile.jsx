@@ -11,10 +11,10 @@ export function UserProfile({ apiKey = 'sk-demo-key-12345' }) {
     const fetchProfile = async () => {
       try {
         const [profileRes, statsRes] = await Promise.all([
-          fetch('http://localhost:8000/api/user/profile', {
+          fetch('http://localhost:8001/api/user/profile', {
             headers: { 'X-API-Key': apiKey }
           }).then(r => r.json()),
-          fetch('http://localhost:8000/api/user/stats', {
+          fetch('http://localhost:8001/api/user/stats', {
             headers: { 'X-API-Key': apiKey }
           }).then(r => r.json())
         ])

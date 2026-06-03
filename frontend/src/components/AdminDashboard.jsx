@@ -11,9 +11,9 @@ export function AdminDashboard() {
     const fetchData = async () => {
       try {
         const [statsRes, feedbackRes, healthRes] = await Promise.all([
-          fetch('http://localhost:8000/api/metrics').then(r => r.json()),
-          fetch('http://localhost:8000/api/feedback/stats').then(r => r.json()),
-          fetch('http://localhost:8000/api/health/detailed').then(r => r.json()),
+          fetch('http://localhost:8001/api/metrics').then(r => r.json()),
+          fetch('http://localhost:8001/api/feedback/stats').then(r => r.json()),
+          fetch('http://localhost:8001/api/health/detailed').then(r => r.json()),
         ])
         setStats(statsRes)
         setFeedbackStats(feedbackRes)
