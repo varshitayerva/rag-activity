@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.app.search.routes import router as search_router
 from backend.app.search.ingest_routes import router as ingest_router
 from backend.app.api.metrics import router as metrics_router
+from backend.app.api.features_routes import router as features_router
 from backend.app.logging_config import setup_logging
 from backend.app.database.postgres import db_client
 
@@ -46,6 +47,7 @@ app.add_middleware(
 app.include_router(search_router)
 app.include_router(ingest_router)
 app.include_router(metrics_router)
+app.include_router(features_router)
 
 @app.on_event("startup")
 async def startup():

@@ -154,7 +154,8 @@
       "Bash(curl -s \"http://localhost:9000/api/generate?query=kubernetes\" -X POST)",
       "Bash(curl -s \"http://localhost:8000/api/generate?query=kubernetes+pods\" -X POST)",
       "Bash(curl -s \"http://localhost:9000/api/generate?query=how+do+I+restart+a+pod\" -X POST)",
-      "Bash(curl -s \"http://localhost:9000/api/search?query=pod+restart&top_k=10\" -X POST)"
+      "Bash(curl -s \"http://localhost:9000/api/search?query=pod+restart&top_k=10\" -X POST)",
+      "Bash(python -m pytest backend/tests/test_validation.py -v)"
     ],
     "additionalDirectories": [
       "c:\\Users\\j.sebastian\\Desktop\\FDE RAG\\backend\\qdrant_storage"
