@@ -1,0 +1,99 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║           M1 PHASE 2A - QUICK REFERENCE CARD                                ║
+║           PostgreSQL + pgAdmin Setup Complete                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+DATABASE CREDENTIALS
+─────────────────────
+  Host:     127.0.0.1
+  Port:     5432
+  Database: rag_db
+  User:     postgres
+  Password: postgres
+
+QUICK START (3 COMMANDS)
+─────────────────────────
+
+1. Create Database:
+   psql -U postgres
+   CREATE DATABASE rag_db;
+   \q
+
+2. Start Server:
+   cd backend
+   python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+3. Open pgAdmin:
+   http://127.0.0.1:5050
+   (Default: pgadmin4@pgadmin.org / admin)
+
+VIEW DATA IN PGADMIN
+──────────────────
+  Servers → RAG-DB → Databases → rag_db → Schemas → public → Tables
+  ├─ documents
+  └─ chunks
+
+API ENDPOINTS
+──────────────
+  GET  /health                          → Check if server is alive
+  GET  /api/documents                   → List all documents
+  GET  /api/documents/{doc_id}          → Get specific document
+  POST /api/ingest                      → Upload document
+  POST /api/ingest/compare              → Compare chunking strategies
+
+UPLOAD EXAMPLE (BASH)
+─────────────────────
+  curl -X POST http://127.0.0.1:8000/api/ingest \
+    -F "file=@sample-docs/troubleshooting-guide.md" \
+    -F "strategy=semantic" \
+    -F "department=Platform" \
+    -F "category=Troubleshooting"
+
+TEST IN BROWSER
+────────────────
+  Health:      http://127.0.0.1:8000/health
+  Documents:   http://127.0.0.1:8000/api/documents
+  Specific:    http://127.0.0.1:8000/api/documents/{doc_id}
+
+RUN TESTS
+──────────
+  cd backend
+  python -m pytest ../tests/ -v
+
+CONFIGURATION FILE
+──────────────────
+  Location: backend/.env
+  Content:
+    DATABASE_URL=postgresql://postgres:postgres@localhost:5432/rag_db
+
+WHAT GETS STORED
+─────────────────
+  ✓ Documents: filename, metadata, timestamps
+  ✓ Chunks: text, sections, page numbers, tokens
+  ✓ All data: queryable in pgAdmin
+  ✓ Ready for: M2 embeddings, M4 caching, M5 frontend
+
+KEY FILES
+──────────
+  backend/app/main.py           → FastAPI application
+  backend/app/models.py         → SQLAlchemy models
+  backend/app/config.py         → Configuration (DATABASE_URL)
+  backend/requirements.txt       → Dependencies
+  COMPLETE_GUIDE.md             → Full documentation
+
+TROUBLESHOOTING
+────────────────
+  Port 5432 error?     → Start PostgreSQL (net start postgresql-x64-15)
+  Auth failed?         → Username: postgres, Password: postgres
+  Database doesn't exist? → psql -U postgres -c "CREATE DATABASE rag_db;"
+  Port 8000 in use?    → Use different port: --port 8001
+  Server won't start?  → Delete backend/rag.db, restart
+
+DOCUMENTATION
+───────────────
+  Read: COMPLETE_GUIDE.md (all information in one file)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+Ready to use! Upload documents, view in pgAdmin, query via API.
+
