@@ -1,0 +1,73 @@
+Docker Guide
+
+What is Docker?
+
+Docker is a containerization platform that packages applications and dependencies.
+
+Docker Images
+
+A Docker image is a lightweight, standalone executable package.
+
+Build an image:
+   docker build -t myapp:1.0 .
+
+List images:
+   docker images
+
+Docker Containers
+
+A container is a runtime instance of an image.
+
+Run a container:
+   docker run -d --name mycontainer myapp:1.0
+
+View running containers:
+   docker ps
+
+Stop a container:
+   docker stop mycontainer
+
+Remove a container:
+   docker rm mycontainer
+
+Docker Networking
+
+Containers communicate through networks.
+
+Create a network:
+   docker network create mynetwork
+
+Connect a container to network:
+   docker run --network mynetwork --name app myimage
+
+Docker Volumes
+
+Volumes persist data between container restarts.
+
+Create a volume:
+   docker volume create myvolume
+
+Mount a volume:
+   docker run -v myvolume:/data myimage
+
+Dockerfile
+
+A Dockerfile defines how to build an image.
+
+Example:
+   FROM python:3.9
+   WORKDIR /app
+   COPY requirements.txt .
+   RUN pip install -r requirements.txt
+   COPY . .
+   CMD ["python", "app.py"]
+
+Docker Compose
+
+Docker Compose defines multi-container applications.
+
+Run with Compose:
+   docker-compose up -d
+
+Stop:
+   docker-compose down

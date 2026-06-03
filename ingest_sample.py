@@ -291,13 +291,13 @@ def main():
 
     for i, res in enumerate(result['results'], 1):
         if res.get('success'):
-            print(f"{i}. {res['filename']}")
-            print(f"   Document ID: {res['doc_id']}")
-            print(f"   Chunks: {res['chunks_created']}")
-            print(f"   Embeddings: {res['embeddings_created']}")
+            print(f"{i}. {res.get('filename', 'Unknown')}")
+            print(f"   Document ID: {res.get('doc_id', 'N/A')}")
+            print(f"   Chunks: {res.get('chunks_created', 0)}")
+            print(f"   Embeddings: {res.get('embeddings_created', 0)}")
         else:
-            print(f"{i}. {res['filename']}")
-            print(f"   Error: {res.get('error')}")
+            print(f"{i}. Error during ingestion")
+            print(f"   Error: {res.get('error', 'Unknown error')}")
         print()
 
     print("=" * 60)

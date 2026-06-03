@@ -52,13 +52,15 @@ class DocumentIngester:
         doc_id = db_client.add_document(filename, file_ext, file_size)
 
         chunk_list = []
-        for i, chunk in enumerate(chunks):
-            chunk_list.append({
-                'chunk_index': i,
-                'text': chunk,
-                'section': None,
-                'page_number': None
-            })
+        for chunk in chunks:
+            # chunk is a Chunk object from chunker
+            chunk_dict = {
+                'chunk_index': chunk.index if hasattr(chunk, 'index') else 0,
+                'text': chunk.text if hasattr(chunk, 'text') else str(chunk),
+                'section': chunk.section if hasattr(chunk, 'section') else None,
+                'page_number': chunk.page_number if hasattr(chunk, 'page_number') else None
+            }
+            chunk_list.append(chunk_dict)
 
         db_client.add_chunks(doc_id, chunk_list)
 

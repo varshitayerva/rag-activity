@@ -1,0 +1,55 @@
+Kubernetes Basics
+
+What is Kubernetes?
+
+Kubernetes (K8s) is an open-source orchestration platform for automating
+the deployment, scaling, and management of containerized applications.
+
+Key Concepts
+
+Pods
+A Pod is the smallest deployable unit in Kubernetes. It wraps one or more containers.
+
+Services
+Services provide stable network identities for Pods and enable load balancing.
+
+Deployments
+Deployments manage the creation and scaling of Pods.
+
+How to Restart a Pod
+
+To restart a pod in Kubernetes:
+
+1. Get the pod name:
+   kubectl get pods
+
+2. Delete the pod:
+   kubectl delete pod <pod-name>
+
+3. The deployment will automatically create a new pod
+
+Alternatively, use:
+   kubectl rollout restart deployment/<deployment-name>
+
+ConfigMaps and Secrets
+
+ConfigMaps store configuration data as key-value pairs.
+Secrets store sensitive data like passwords and API keys.
+
+Namespaces
+
+Namespaces provide virtual clusters within a single Kubernetes cluster.
+
+List namespaces:
+   kubectl get namespaces
+
+Create a namespace:
+   kubectl create namespace <name>
+
+Common kubectl Commands
+
+- kubectl apply -f <file>: Apply configuration
+- kubectl get <resource>: List resources
+- kubectl describe <resource> <name>: Show details
+- kubectl logs <pod-name>: View pod logs
+- kubectl exec -it <pod-name> -- /bin/bash: Enter pod shell

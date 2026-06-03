@@ -1,20 +1,73 @@
-"""In-memory vector store using sentence-transformers."""
+"""In-memory vector store using sentence-transformers with offline fallback."""
 
-from sentence_transformers import SentenceTransformer
 import numpy as np
 from typing import List, Dict, Any
 from pathlib import Path
 
+try:
+    from sentence_transformers import SentenceTransformer
+    HAS_TRANSFORMERS = True
+except ImportError:
+    HAS_TRANSFORMERS = False
+
+
+class SimpleEmbedding:
+    """Simple offline embedding using TF-IDF-like approach."""
+
+    def __init__(self):
+        self.vocab = {}
+        self.idf = {}
+
+    def encode(self, texts: List[str], convert_to_tensor: bool = False) -> List[List[float]]:
+        """Encode texts to 384-dimensional vectors using simple method."""
+        embeddings = []
+
+        for text in texts:
+            # Simple hash-based embedding
+            words = text.lower().split()
+            embedding = [0.0] * 384
+
+            for i, word in enumerate(words):
+                # Use word hash to determine which dimensions to activate
+                word_hash = hash(word) % 384
+                embedding[word_hash] += 1.0 / (len(words) + 1)
+
+            # Normalize
+            norm = np.linalg.norm(embedding)
+            if norm > 0:
+                embedding = [x / norm for x in embedding]
+
+            embeddings.append(np.array(embedding, dtype=np.float32))
+
+        return embeddings
+
+
 class VectorStore:
-    """In-memory vector store using sentence-transformers."""
+    """In-memory vector store using sentence-transformers with fallback."""
 
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
-        """Initialize with sentence-transformers model. Auto-downloads on first use."""
-        print(f"Loading embedding model: {model_name}...")
-        self.model = SentenceTransformer(model_name)
+        """Initialize with sentence-transformers model or simple fallback."""
+        self.model = None
+        self.embedding_dim = 384
         self.vectors = []
         self.metadata = []
-        print(f"✅ Model loaded. Embedding dimension: {self.model.get_sentence_embedding_dimension()}")
+        self.use_simple = False
+
+        if HAS_TRANSFORMERS:
+            try:
+                print(f"Loading embedding model: {model_name}...")
+                self.model = SentenceTransformer(model_name)
+                self.embedding_dim = self.model.get_sentence_embedding_dimension()
+                print(f"Model loaded. Embedding dimension: {self.embedding_dim}")
+            except Exception as e:
+                print(f"Could not load transformer model: {e}")
+                print("Using simple embedding fallback...")
+                self.model = SimpleEmbedding()
+                self.use_simple = True
+        else:
+            print("sentence-transformers not available, using simple embedding")
+            self.model = SimpleEmbedding()
+            self.use_simple = True
 
     def add(self, texts: List[str], metadata_list: List[Dict[str, Any]]):
         """Add texts with embeddings."""
@@ -22,20 +75,27 @@ class VectorStore:
             return
 
         print(f"Embedding {len(texts)} chunks...")
-        embeddings = self.model.encode(texts, convert_to_tensor=False)
+
+        if self.use_simple or isinstance(self.model, SimpleEmbedding):
+            embeddings = self.model.encode(texts)
+        else:
+            embeddings = self.model.encode(texts, convert_to_tensor=False)
 
         for emb, meta in zip(embeddings, metadata_list):
             self.vectors.append(emb)
             self.metadata.append(meta)
 
-        print(f"✅ Added {len(texts)} chunks to vector store")
+        print(f"Added {len(texts)} chunks to vector store")
 
     def search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """Search similar texts."""
         if not self.vectors:
             return []
 
-        query_embedding = self.model.encode(query, convert_to_tensor=False)
+        if self.use_simple or isinstance(self.model, SimpleEmbedding):
+            query_embedding = self.model.encode([query])[0]
+        else:
+            query_embedding = self.model.encode(query, convert_to_tensor=False)
 
         # Calculate cosine similarity
         similarities = []

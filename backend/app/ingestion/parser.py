@@ -49,10 +49,29 @@ class MarkdownParser(Parser):
         return text, page_count, metadata
 
 
+class TextParser(Parser):
+    def parse(self, file_content: bytes) -> Tuple[str, int, dict]:
+        text = file_content.decode('utf-8', errors='ignore')
+
+        lines = text.split('\n')
+        page_count = max(1, len(lines) // 50)
+
+        metadata = {
+            "page_count": page_count,
+            "file_type": "text"
+        }
+
+        return text, page_count, metadata
+
+
 def get_parser(file_type: str) -> Parser:
-    if file_type.lower() in ['pdf', 'application/pdf']:
+    file_type_lower = file_type.lower()
+
+    if file_type_lower in ['pdf', 'application/pdf']:
         return PDFParser()
-    elif file_type.lower() in ['markdown', 'text/markdown', 'md']:
+    elif file_type_lower in ['markdown', 'text/markdown', 'md']:
         return MarkdownParser()
+    elif file_type_lower in ['txt', 'text', 'text/plain']:
+        return TextParser()
     else:
         raise ValueError(f"Unsupported file type: {file_type}")
