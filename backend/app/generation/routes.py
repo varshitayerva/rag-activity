@@ -93,6 +93,13 @@ async def config():
     return {
         "current_provider": current_provider,
         "available_providers": {
+            "huggingface": {
+                "description": "Hugging Face Inference API (free, OpenAI-compatible)",
+                "requires": "HF_TOKEN",
+                "setup": "https://huggingface.co/settings/tokens",
+                "cost": "Free forever",
+                "default": True,
+            },
             "groq": {
                 "description": "Groq API (free cloud, no download needed)",
                 "requires": "GROQ_API_KEY",
@@ -113,6 +120,7 @@ async def config():
             },
         },
         "example_usage": {
+            "huggingface": "POST /api/generate?provider=huggingface (default)",
             "groq": "POST /api/generate?provider=groq",
             "anthropic": "POST /api/generate?provider=anthropic",
             "ollama": "POST /api/generate?provider=ollama",

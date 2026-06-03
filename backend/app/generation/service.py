@@ -11,36 +11,62 @@ class GenerationService:
     Generation service supporting multiple LLM providers.
 
     Supports:
-    - Groq (free cloud API, no download needed)
-    - Anthropic Claude (if you prefer)
+    - Hugging Face Inference API (free, OpenAI-compatible)
+    - Groq (free cloud API)
+    - Anthropic Claude (cloud API with free tier)
     - Ollama (local, if you download models)
 
-    Default: Groq (free, no setup required beyond API key)
+    Default: Hugging Face Inference API (completely free)
     """
 
-    def __init__(self, provider: str = "groq", api_key: Optional[str] = None):
+    def __init__(self, provider: str = "huggingface", api_key: Optional[str] = None):
         """
         Initialize generation service.
 
         Args:
-            provider: 'groq' (default), 'anthropic', or 'ollama'
+            provider: 'huggingface' (default), 'groq', 'anthropic', or 'ollama'
             api_key: API key for the provider (uses env var if not provided)
 
         Environment variables:
+            HF_TOKEN - for Hugging Face Inference API
             GROQ_API_KEY - for Groq
             ANTHROPIC_API_KEY - for Anthropic Claude
             OLLAMA_BASE_URL - for Ollama (default: http://localhost:11434)
         """
         self.provider = provider.lower()
 
-        if self.provider == "groq":
+        if self.provider == "huggingface":
+            self._init_huggingface(api_key)
+        elif self.provider == "groq":
             self._init_groq(api_key)
         elif self.provider == "anthropic":
             self._init_anthropic(api_key)
         elif self.provider == "ollama":
             self._init_ollama()
         else:
-            raise ValueError(f"Unknown provider: {provider}. Use 'groq', 'anthropic', or 'ollama'")
+            raise ValueError(
+                f"Unknown provider: {provider}. Use 'huggingface', 'groq', 'anthropic', or 'ollama'"
+            )
+
+    def _init_huggingface(self, api_key: Optional[str] = None):
+        """Initialize Hugging Face Inference API client (free, OpenAI-compatible)."""
+        try:
+            from openai import AsyncOpenAI
+        except ImportError:
+            raise ImportError("openai not installed. Run: pip install openai")
+
+        api_key_to_use = api_key or os.getenv("HF_TOKEN")
+        if not api_key_to_use:
+            raise ValueError(
+                "HF_TOKEN not set. Get free token at https://huggingface.co/settings/tokens"
+            )
+
+        self.client = AsyncOpenAI(
+            base_url="https://router.huggingface.co/v1",
+            api_key=api_key_to_use,
+        )
+        self.model = "openai/gpt-oss-120b:groq"  # Free, fast model
+        self.provider_name = "Hugging Face Inference API"
 
     def _init_groq(self, api_key: Optional[str] = None):
         """Initialize Groq client (free cloud API)."""
@@ -123,7 +149,10 @@ class GenerationService:
         yield json.dumps({"type": "metadata", "sources": [s.model_dump() for s in sources]})
         yield "\n"
 
-        if self.provider == "groq":
+        if self.provider == "huggingface":
+            async for event in self._stream_huggingface(prompt):
+                yield event
+        elif self.provider == "groq":
             async for event in self._stream_groq(prompt):
                 yield event
         elif self.provider == "anthropic":
@@ -132,6 +161,35 @@ class GenerationService:
         elif self.provider == "ollama":
             async for event in self._stream_ollama(prompt):
                 yield event
+
+    async def _stream_huggingface(self, prompt: str) -> AsyncGenerator[str, None]:
+        """Stream from Hugging Face Inference API (OpenAI-compatible)."""
+        async with self.client.messages.stream(
+            model=self.model,
+            max_tokens=1024,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}],
+        ) as stream:
+            input_tokens = 0
+            output_tokens = 0
+
+            async for text in stream.text_stream:
+                if text:
+                    yield json.dumps({"type": "token", "content": text})
+                    yield "\n"
+
+            final_message = await stream.get_final_message()
+            input_tokens = final_message.usage.input_tokens
+            output_tokens = final_message.usage.output_tokens
+
+        yield json.dumps(
+            {
+                "type": "done",
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+            }
+        )
+        yield "\n"
 
     async def _stream_groq(self, prompt: str) -> AsyncGenerator[str, None]:
         """Stream from Groq API."""
@@ -236,12 +294,30 @@ class GenerationService:
         context = format_context([chunk.model_dump() for chunk in chunks])
         prompt = build_prompt(query, context)
 
-        if self.provider == "groq":
+        if self.provider == "huggingface":
+            return await self._generate_huggingface(prompt, sources)
+        elif self.provider == "groq":
             return await self._generate_groq(prompt, sources)
         elif self.provider == "anthropic":
             return await self._generate_anthropic(prompt, sources)
         elif self.provider == "ollama":
             return await self._generate_ollama(prompt, sources)
+
+    async def _generate_huggingface(self, prompt: str, sources: List[SourceAttribution]) -> dict:
+        """Generate from Hugging Face Inference API."""
+        message = await self.client.messages.create(
+            model=self.model,
+            max_tokens=1024,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}],
+        )
+
+        return {
+            "response": message.choices[0].message.content,
+            "sources": [s.model_dump() for s in sources],
+            "input_tokens": message.usage.input_tokens,
+            "output_tokens": message.usage.output_tokens,
+        }
 
     async def _generate_groq(self, prompt: str, sources: List[SourceAttribution]) -> dict:
         """Generate from Groq."""
