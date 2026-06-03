@@ -311,6 +311,7 @@ async def generate(
 
         # Record metrics
         MetricsCollector.record_latency(latency_ms)
+        MetricsCollector.record_embedding_hit()  # Track query count
         MetricsCollector.record_retrieval_hit() if results else MetricsCollector.record_retrieval_miss()
         tokens = len(query.split()) + len(answer.split())
         MetricsCollector.record_tokens(len(query.split()), len(answer.split()))

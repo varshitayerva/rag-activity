@@ -35,7 +35,7 @@ Provide a clear, concise answer."""
     try:
         message = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            max_tokens=1024,
+            max_tokens=2048,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
@@ -75,8 +75,8 @@ Provide a clear, concise answer."""
 
     try:
         with client.chat.completions.create(
-            model="llama-3.1-70b-versatile",
-            max_tokens=1024,
+            model="llama-3.3-70b-versatile",
+            max_tokens=2048,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
