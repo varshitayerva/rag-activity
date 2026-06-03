@@ -1,1 +1,1 @@
-# Backend application module
+# RAG backend application
