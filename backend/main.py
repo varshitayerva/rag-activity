@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from backend.app.generation import router as generation_router
+from backend.app.search.routes import router as search_router
+from backend.app.api.routes import router as metrics_router
 
 app = FastAPI(
     title="Technical Support Copilot RAG",
@@ -22,6 +24,8 @@ app.add_middleware(
 
 # Register routers
 app.include_router(generation_router)
+app.include_router(search_router)
+app.include_router(metrics_router)
 
 
 @app.get("/health")
