@@ -7,8 +7,8 @@ from backend.app.cache.metrics import MetricsCollector
 
 router = APIRouter(prefix="/api", tags=["search"])
 
-def search_chunks(query: str, top_k: int = 10) -> list:
-    """Search chunks using vector similarity."""
+def search_chunks(query: str, top_k: int = 10, filters: Dict[str, Any] = None) -> list:
+    """Search chunks using vector similarity with optional filtering."""
     try:
         # Get vector store
         vs = get_vector_store()
@@ -20,16 +20,65 @@ def search_chunks(query: str, top_k: int = 10) -> list:
 
         # Search
         results = vs.search(query, top_k=top_k)
+
+        # Apply filters to results
+        if filters:
+            results = apply_filters(results, filters)
+
         return results
     except Exception as e:
         print(f"Vector search error: {e}")
         return []
 
 
+def apply_filters(results: list, filters: Dict[str, Any] = None) -> list:
+    """Filter search results by relevance, department, category, and date."""
+    # Filter by relevance threshold - show only highly relevant results
+    if not results:
+        return []
+
+    # Sort by score descending
+    sorted_results = sorted(results, key=lambda x: x.get('score', 0), reverse=True)
+
+    # Keep results that are at least 60% of the top score to reduce noise
+    if sorted_results:
+        top_score = sorted_results[0].get('score', 0)
+        threshold = max(top_score * 0.6, 0.1)  # 60% of top score, minimum 0.1
+        filtered = [r for r in sorted_results if r.get('score', 0) >= threshold]
+    else:
+        filtered = []
+
+    if not filters:
+        return filtered
+
+    department = filters.get('department')
+    category = filters.get('category')
+    date_from = filters.get('dateFrom')
+    date_to = filters.get('dateTo')
+
+    # Filter by department
+    if department:
+        filtered = [r for r in filtered if r.get('department') == department]
+
+    # Filter by category
+    if category:
+        filtered = [r for r in filtered if r.get('category') == category]
+
+    # Filter by date range
+    if date_from:
+        filtered = [r for r in filtered if str(r.get('created_at', '')).startswith(date_from)]
+
+    if date_to:
+        filtered = [r for r in filtered if str(r.get('created_at', '')).startswith(date_to) or
+                    str(r.get('created_at', '')[:10]) < date_to]
+
+    return filtered
+
+
 def load_vector_store_from_db(vs):
     """Load all chunks from database into vector store."""
     try:
-        chunks = db_client.get_all_chunks()
+        chunks = db_client.get_chunks_with_filters()
         if not chunks:
             print("No chunks found in database")
             return
@@ -43,8 +92,12 @@ def load_vector_store_from_db(vs):
                 'chunk_id': chunk['id'],
                 'text': chunk['text'],
                 'doc_id': chunk['document_id'],
+                'doc': chunk.get('filename'),
                 'section': chunk.get('section'),
-                'page_number': chunk.get('page_number')
+                'page_number': chunk.get('page_number'),
+                'department': chunk.get('department'),
+                'category': chunk.get('category'),
+                'created_at': str(chunk.get('created_at', ''))
             }
             for chunk in chunks
         ]
@@ -61,16 +114,23 @@ def load_vector_store_from_db(vs):
 async def search(
     query: str,
     top_k: int = 10,
-    filter: Optional[Dict[str, Any]] = None,
+    department: str = None,
+    category: str = None,
+    dateFrom: str = None,
+    dateTo: str = None,
 ):
-    """Search across documents using vector embeddings.
+    """Search across documents using vector embeddings with optional filters.
 
     Real-time semantic search using sentence-transformers.
 
     Request:
     {
         "query": "How do I restart a pod?",
-        "top_k": 10
+        "top_k": 10,
+        "department": "Platform",
+        "category": "Troubleshooting",
+        "dateFrom": "2024-01-01",
+        "dateTo": "2024-12-31"
     }
 
     Response:
@@ -81,7 +141,9 @@ async def search(
                 "score": 0.95,
                 "text": "chunk text...",
                 "chunk_id": 123,
-                "doc_id": 456
+                "doc_id": 456,
+                "department": "Platform",
+                "category": "Troubleshooting"
             }
         ],
         "latency_ms": 125,
@@ -94,8 +156,19 @@ async def search(
     try:
         start_time = time.time()
 
-        # Search in vector store
-        results = search_chunks(query, top_k=top_k)
+        # Build filters
+        filters = {}
+        if department:
+            filters['department'] = department
+        if category:
+            filters['category'] = category
+        if dateFrom:
+            filters['dateFrom'] = dateFrom
+        if dateTo:
+            filters['dateTo'] = dateTo
+
+        # Search in vector store with filters
+        results = search_chunks(query, top_k=top_k, filters=filters if filters else None)
 
         latency_ms = int((time.time() - start_time) * 1000)
 
@@ -109,6 +182,13 @@ async def search(
 
         # Record metrics
         MetricsCollector.record_latency(latency_ms)
+        MetricsCollector.record_embedding_hit()  # Track search as query
+
+        # Estimate tokens: ~1 token per word in query + ~50 tokens per result
+        input_tokens = len(query.split()) + 10  # Query tokens + buffer
+        output_tokens = len(results) * 50 if results else 0
+        MetricsCollector.record_tokens(input_tokens, output_tokens)
+
         if results:
             MetricsCollector.record_retrieval_hit()
         else:
@@ -148,3 +228,18 @@ async def get_document_chunks(doc_id: int):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get chunks: {str(e)}")
+
+
+@router.post("/search/rebuild")
+async def rebuild_vector_store():
+    """Rebuild the vector store from database."""
+    try:
+        vs = get_vector_store(reset=True)
+        load_vector_store_from_db(vs)
+        return {
+            "status": "success",
+            "message": "Vector store rebuilt",
+            "chunks_loaded": vs.size()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to rebuild: {str(e)}")
