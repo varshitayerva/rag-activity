@@ -17,24 +17,18 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
     setLoading(true)
 
     try {
-      // Search for relevant chunks with filters
-      const searchResults = await apiClient.search(userQuery, 10, filters)
-      const chunks = searchResults.results || []
+      // Generate answer with sources using Groq
+      const generatedResult = await apiClient.generate(userQuery, 10, filters)
+      const chunks = generatedResult.sources || []
+      const answer = generatedResult.answer || 'No answer generated'
 
       // Notify parent of retrieved sources
       onSourcesUpdate?.(chunks)
 
-      // Format the response
-      let responseText = ''
-      if (chunks.length === 0) {
-        responseText = `No results found for "${userQuery}". Try searching for:\n• "What is Kubernetes?"\n• "What is Docker?"\n• "Python best practices"`
-      } else {
-        responseText = `Found ${chunks.length} relevant result${chunks.length > 1 ? 's' : ''} for "${userQuery}".\n\nTop matches shown on the right →`
-      }
-
+      // Display the LLM-generated answer
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: responseText, sources: chunks }
+        { role: 'assistant', content: answer, sources: chunks }
       ])
     } catch (error) {
       console.error('Error:', error)
@@ -143,7 +137,7 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
                   <div className="w-3 h-3 bg-gradient-to-r from-blue-600 to-blue-700 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                   <div className="w-3 h-3 bg-gradient-to-r from-blue-600 to-blue-700 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
                 </div>
-                <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">Searching...</p>
+                <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">Generating answer...</p>
               </div>
             </div>
           </div>

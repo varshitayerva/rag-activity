@@ -94,6 +94,40 @@ export const apiClient = {
       console.error('Get documents error:', error)
       return { documents: [] }
     }
+  },
+
+  async generate(query, topK = 10, filters = {}, stream = false) {
+    try {
+      const params = new URLSearchParams({
+        query: query,
+        top_k: topK,
+        stream: stream
+      })
+
+      if (filters.department) params.append('department', filters.department)
+      if (filters.category) params.append('category', filters.category)
+      if (filters.dateFrom) params.append('dateFrom', filters.dateFrom)
+      if (filters.dateTo) params.append('dateTo', filters.dateTo)
+
+      const response = await fetch(`${API_URL}/api/generate?${params}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+
+      if (!response.ok) {
+        throw new Error(`Generate failed: ${response.status}`)
+      }
+
+      if (stream) {
+        return response.body.getReader()
+      }
+
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error('Generate error:', error)
+      throw error
+    }
   }
 }
 

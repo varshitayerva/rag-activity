@@ -1,9 +1,11 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from typing import Optional, Dict, Any
 import time
 from backend.app.search.vector_store import get_vector_store
 from backend.app.database.postgres import db_client
 from backend.app.cache.metrics import MetricsCollector
+from backend.app.generation.service import generate_answer, stream_answer
 
 router = APIRouter(prefix="/api", tags=["search"])
 
@@ -243,3 +245,79 @@ async def rebuild_vector_store():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to rebuild: {str(e)}")
+
+
+@router.post("/generate")
+async def generate(
+    query: str,
+    top_k: int = 10,
+    department: str = None,
+    category: str = None,
+    dateFrom: str = None,
+    dateTo: str = None,
+    stream: bool = False
+):
+    """Search documents and generate an LLM answer using Groq.
+
+    Returns either streamed or complete answer based on 'stream' parameter.
+    """
+    if not query or len(query.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+    try:
+        start_time = time.time()
+
+        # Build filters
+        filters = {}
+        if department:
+            filters['department'] = department
+        if category:
+            filters['category'] = category
+        if dateFrom:
+            filters['dateFrom'] = dateFrom
+        if dateTo:
+            filters['dateTo'] = dateTo
+
+        # Search for relevant documents
+        results = search_chunks(query, top_k=top_k, filters=filters if filters else None)
+
+        if not results:
+            return {
+                "query": query,
+                "answer": "No relevant documents found. Please refine your search query.",
+                "sources": [],
+                "latency_ms": int((time.time() - start_time) * 1000)
+            }
+
+        # Generate answer using Groq with streaming
+        if stream:
+            async def generate_stream():
+                for chunk in stream_answer(query, results):
+                    yield chunk
+
+            return StreamingResponse(generate_stream(), media_type="text/event-stream")
+
+        # Non-streaming response
+        answer = generate_answer(query, results)
+        latency_ms = int((time.time() - start_time) * 1000)
+
+        response = {
+            "query": query,
+            "answer": answer,
+            "sources": results[:3],  # Top 3 sources
+            "latency_ms": latency_ms,
+            "result_count": len(results)
+        }
+
+        # Record metrics
+        MetricsCollector.record_latency(latency_ms)
+        MetricsCollector.record_retrieval_hit() if results else MetricsCollector.record_retrieval_miss()
+        tokens = len(query.split()) + len(answer.split())
+        MetricsCollector.record_tokens(len(query.split()), len(answer.split()))
+
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
