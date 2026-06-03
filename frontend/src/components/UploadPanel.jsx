@@ -33,9 +33,9 @@ export function UploadPanel({ onUploadSuccess }) {
       const result = await apiClient.ingest(file, metadata)
 
       const successMsg = `✅ Successfully uploaded: ${file.name}
-📚 Created ${result.chunks_created} chunks using ${result.strategy} chunking
-🪙 Total tokens: ${result.tokens_total}
-📅 Uploaded: ${new Date(result.metadata.uploaded_at).toLocaleString()}`
+📚 Created ${result.chunks_created} chunks
+💾 File size: ${(result.file_size / 1024).toFixed(2)} KB
+📍 Document ID: ${result.document_id}`
 
       setMessage(successMsg)
       setMessageType('success')
