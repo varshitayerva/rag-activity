@@ -82,7 +82,9 @@
       "Bash(curl -s http://localhost:8000/api/metrics)",
       "Bash(python -m pytest tests/ -v --tb=short)",
       "Bash(timeout 5 python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000)",
-      "Bash(python test_workflow.py)"
+      "Bash(python test_workflow.py)",
+      "Bash(python init_db.py)",
+      "Bash(python ingest_sample.py)"
     ],
     "additionalDirectories": [
       "c:\\Users\\j.sebastian\\Desktop\\FDE RAG\\backend\\qdrant_storage"

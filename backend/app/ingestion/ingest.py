@@ -6,7 +6,7 @@ from typing import List, Optional
 from backend.app.ingestion.parser import get_parser
 from backend.app.ingestion.chunker import FixedChunker
 from backend.app.database.postgres import db_client
-from backend.app.search.vector_store import vector_store
+from backend.app.search.vector_store import get_vector_store
 
 
 class DocumentIngester:
@@ -76,7 +76,8 @@ class DocumentIngester:
             for i, c in enumerate(chunk_list)
         ]
 
-        vector_store.add(texts, chunk_metadata)
+        vs = get_vector_store()
+        vs.add(texts, chunk_metadata)
 
         result = {
             "success": True,
@@ -87,10 +88,10 @@ class DocumentIngester:
             "embeddings_created": len(chunk_metadata)
         }
 
-        print(f"✅ Ingestion complete for {filename}")
+        print(f"Ingestion complete for {filename}")
         print(f"   Document ID: {doc_id}")
         print(f"   Chunks: {len(chunks)}")
-        print(f"   Vector store size: {vector_store.size()}")
+        print(f"   Vector store size: {vs.size()}")
 
         return result
 

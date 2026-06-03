@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """Ingest sample documents."""
 
 import os
@@ -9,6 +10,11 @@ from typing import Optional
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent))
 
+# Fix encoding on Windows
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
 from backend.app.ingestion.ingest import DocumentIngester
 
 
@@ -18,25 +24,25 @@ def create_sample_docs():
     samples_dir.mkdir(exist_ok=True)
 
     # Sample 1: Kubernetes Guide
-    with open(samples_dir / "kubernetes_basics.txt", "w") as f:
-        f.write("""# Kubernetes Basics
+    k8s_content = """Kubernetes Basics
 
-## What is Kubernetes?
+What is Kubernetes?
 
-Kubernetes (K8s) is an open-source orchestration platform for automating the deployment, scaling, and management of containerized applications.
+Kubernetes (K8s) is an open-source orchestration platform for automating
+the deployment, scaling, and management of containerized applications.
 
-## Key Concepts
+Key Concepts
 
-### Pods
+Pods
 A Pod is the smallest deployable unit in Kubernetes. It wraps one or more containers.
 
-### Services
+Services
 Services provide stable network identities for Pods and enable load balancing.
 
-### Deployments
+Deployments
 Deployments manage the creation and scaling of Pods.
 
-## How to Restart a Pod
+How to Restart a Pod
 
 To restart a pod in Kubernetes:
 
@@ -51,12 +57,12 @@ To restart a pod in Kubernetes:
 Alternatively, use:
    kubectl rollout restart deployment/<deployment-name>
 
-## ConfigMaps and Secrets
+ConfigMaps and Secrets
 
 ConfigMaps store configuration data as key-value pairs.
 Secrets store sensitive data like passwords and API keys.
 
-## Namespaces
+Namespaces
 
 Namespaces provide virtual clusters within a single Kubernetes cluster.
 
@@ -66,24 +72,26 @@ List namespaces:
 Create a namespace:
    kubectl create namespace <name>
 
-## Common kubectl Commands
+Common kubectl Commands
 
 - kubectl apply -f <file>: Apply configuration
 - kubectl get <resource>: List resources
 - kubectl describe <resource> <name>: Show details
 - kubectl logs <pod-name>: View pod logs
 - kubectl exec -it <pod-name> -- /bin/bash: Enter pod shell
-""")
+"""
+
+    with open(samples_dir / "kubernetes_basics.txt", "w", encoding='utf-8') as f:
+        f.write(k8s_content)
 
     # Sample 2: Docker Guide
-    with open(samples_dir / "docker_guide.txt", "w") as f:
-        f.write("""# Docker Guide
+    docker_content = """Docker Guide
 
-## What is Docker?
+What is Docker?
 
 Docker is a containerization platform that packages applications and dependencies.
 
-## Docker Images
+Docker Images
 
 A Docker image is a lightweight, standalone executable package.
 
@@ -93,7 +101,7 @@ Build an image:
 List images:
    docker images
 
-## Docker Containers
+Docker Containers
 
 A container is a runtime instance of an image.
 
@@ -109,7 +117,7 @@ Stop a container:
 Remove a container:
    docker rm mycontainer
 
-## Docker Networking
+Docker Networking
 
 Containers communicate through networks.
 
@@ -119,7 +127,7 @@ Create a network:
 Connect a container to network:
    docker run --network mynetwork --name app myimage
 
-## Docker Volumes
+Docker Volumes
 
 Volumes persist data between container restarts.
 
@@ -129,7 +137,7 @@ Create a volume:
 Mount a volume:
    docker run -v myvolume:/data myimage
 
-## Dockerfile
+Dockerfile
 
 A Dockerfile defines how to build an image.
 
@@ -141,7 +149,7 @@ Example:
    COPY . .
    CMD ["python", "app.py"]
 
-## Docker Compose
+Docker Compose
 
 Docker Compose defines multi-container applications.
 
@@ -150,13 +158,15 @@ Run with Compose:
 
 Stop:
    docker-compose down
-""")
+"""
+
+    with open(samples_dir / "docker_guide.txt", "w", encoding='utf-8') as f:
+        f.write(docker_content)
 
     # Sample 3: Python Best Practices
-    with open(samples_dir / "python_practices.txt", "w") as f:
-        f.write("""# Python Best Practices
+    python_content = """Python Best Practices
 
-## Code Style
+Code Style
 
 Follow PEP 8 guidelines:
 - Use 4 spaces for indentation
@@ -164,29 +174,29 @@ Follow PEP 8 guidelines:
 - Two blank lines between top-level definitions
 - One blank line between methods
 
-## Virtual Environments
+Virtual Environments
 
 Always use virtual environments:
 
    python -m venv venv
    source venv/bin/activate  # Linux/Mac
-   venv\\Scripts\\activate    # Windows
+   venv\Scripts\activate    # Windows
 
-## Dependencies
+Dependencies
 
 Use requirements.txt:
 
    pip freeze > requirements.txt
    pip install -r requirements.txt
 
-## Type Hints
+Type Hints
 
 Use type hints for clarity:
 
    def add(a: int, b: int) -> int:
        return a + b
 
-## Error Handling
+Error Handling
 
 Handle exceptions appropriately:
 
@@ -197,7 +207,7 @@ Handle exceptions appropriately:
    finally:
        cleanup()
 
-## Testing
+Testing
 
 Write tests for your code:
 
@@ -210,22 +220,22 @@ Run tests:
 
    pytest tests/
 
-## Documentation
+Documentation
 
 Write docstrings:
 
    def calculate_total(items: list) -> float:
-       """Calculate total from list of items.
+       Calculate total from list of items.
 
        Args:
            items: List of numbers
 
        Returns:
            Sum of all items
-       """
+
        return sum(items)
 
-## Logging
+Logging
 
 Use logging instead of print:
 
@@ -234,15 +244,18 @@ Use logging instead of print:
    logging.info("Operation started")
    logging.error("Operation failed")
 
-## Performance
+Performance
 
 - Use list comprehensions
 - Avoid global variables
 - Cache expensive computations
 - Use appropriate data structures
-""")
+"""
 
-    print(f"✅ Created sample documents in {samples_dir}/")
+    with open(samples_dir / "python_practices.txt", "w", encoding='utf-8') as f:
+        f.write(python_content)
+
+    print(f"Created sample documents in {samples_dir}/")
     return samples_dir
 
 
@@ -261,7 +274,7 @@ def main():
     # Initialize ingester
     print("[2/3] Initializing ingester...")
     ingester = DocumentIngester()
-    print("✅ Ingester ready")
+    print("Ingester ready")
     print()
 
     # Ingest documents
@@ -270,7 +283,7 @@ def main():
 
     print()
     print("=" * 60)
-    print("✅ Ingestion Results")
+    print("Ingestion Results")
     print("=" * 60)
     print(f"Total files: {result['total_files']}")
     print(f"Successful: {result['successful']}")
@@ -279,12 +292,12 @@ def main():
     for i, res in enumerate(result['results'], 1):
         if res.get('success'):
             print(f"{i}. {res['filename']}")
-            print(f"   ✅ Document ID: {res['doc_id']}")
-            print(f"   ✅ Chunks: {res['chunks_created']}")
-            print(f"   ✅ Embeddings: {res['embeddings_created']}")
+            print(f"   Document ID: {res['doc_id']}")
+            print(f"   Chunks: {res['chunks_created']}")
+            print(f"   Embeddings: {res['embeddings_created']}")
         else:
             print(f"{i}. {res['filename']}")
-            print(f"   ❌ Error: {res.get('error')}")
+            print(f"   Error: {res.get('error')}")
         print()
 
     print("=" * 60)

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from typing import Optional, Dict, Any
 import time
-from backend.app.search.vector_store import vector_store
+from backend.app.search.vector_store import get_vector_store
 from backend.app.database.postgres import db_client
 from backend.app.cache.metrics import MetricsCollector
 
@@ -10,8 +10,9 @@ router = APIRouter(prefix="/api", tags=["search"])
 def search_chunks(query: str, top_k: int = 10) -> list:
     """Search chunks using vector similarity."""
     try:
-        # Search in vector store
-        results = vector_store.search(query, top_k=top_k)
+        # Get vector store and search
+        vs = get_vector_store()
+        results = vs.search(query, top_k=top_k)
         return results
     except Exception as e:
         print(f"Vector search error: {e}")
