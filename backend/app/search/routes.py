@@ -1,12 +1,17 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import StreamingResponse
 from typing import Optional, Dict, Any
 import time
+import logging
 from backend.app.search.vector_store import get_vector_store
 from backend.app.database.postgres import db_client
 from backend.app.cache.metrics import MetricsCollector
 from backend.app.generation.service import generate_answer, stream_answer
+from backend.app.validation import validate_search_query, validate_filters
+from backend.app.auth import require_auth, require_demo_mode
+from backend.app.search.ingest_routes import router as ingest_router
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["search"])
 
 def search_chunks(query: str, top_k: int = 10, filters: Dict[str, Any] = None) -> list:
@@ -120,6 +125,7 @@ async def search(
     category: str = None,
     dateFrom: str = None,
     dateTo: str = None,
+    api_key: Optional[str] = Depends(require_auth) if not require_demo_mode() else None,
 ):
     """Search across documents using vector embeddings with optional filters.
 
@@ -152,13 +158,16 @@ async def search(
         "result_count": 1
     }
     """
-    if not query or len(query.strip()) == 0:
-        raise HTTPException(status_code=400, detail="Query cannot be empty")
+    # Validate search query
+    is_valid, error = validate_search_query(query)
+    if not is_valid:
+        logger.warning(f"Invalid search query: {error}")
+        raise HTTPException(status_code=400, detail=error)
 
     try:
         start_time = time.time()
 
-        # Build filters
+        # Build and validate filters
         filters = {}
         if department:
             filters['department'] = department
@@ -168,6 +177,13 @@ async def search(
             filters['dateFrom'] = dateFrom
         if dateTo:
             filters['dateTo'] = dateTo
+
+        is_valid, error = validate_filters({**filters, 'top_k': top_k})
+        if not is_valid:
+            logger.warning(f"Invalid filters: {error}")
+            raise HTTPException(status_code=400, detail=error)
+
+        logger.info(f"Search: {query[:50]}...")
 
         # Search in vector store with filters
         results = search_chunks(query, top_k=top_k, filters=filters if filters else None)

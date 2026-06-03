@@ -1,67 +1,75 @@
+import os
+import logging
 from fastapi import FastAPI
-from starlette.middleware import Middleware
-from starlette.middleware.cors import CORSMiddleware
-from starlette.types import ASGIApp, Receive, Scope, Send
+from fastapi.middleware.cors import CORSMiddleware
 from backend.app.search.routes import router as search_router
+from backend.app.search.ingest_routes import router as ingest_router
 from backend.app.api.metrics import router as metrics_router
+from backend.app.logging_config import setup_logging
+from backend.app.database.postgres import db_client
 
+logger = logging.getLogger(__name__)
+setup_logging()
 
-class CORSHeaderMiddleware:
-    """Custom CORS middleware to add headers explicitly."""
+# CORS configuration - explicitly set allowed origins
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:3002",
+]
 
-    def __init__(self, app: ASGIApp):
-        self.app = app
+# Add production origins if configured
+prod_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
+ALLOWED_ORIGINS.extend([o.strip() for o in prod_origins if o.strip()])
 
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
-            await self.app(scope, receive, send)
-            return
-
-        # Handle OPTIONS
-        if scope["method"] == "OPTIONS":
-            await send({
-                "type": "http.response.start",
-                "status": 200,
-                "headers": [
-                    (b"access-control-allow-origin", b"*"),
-                    (b"access-control-allow-methods", b"GET,POST,PUT,DELETE,OPTIONS"),
-                    (b"access-control-allow-headers", b"*"),
-                    (b"access-control-expose-headers", b"*"),
-                    (b"content-length", b"0"),
-                ],
-            })
-            await send({"type": "http.response.body", "body": b""})
-            return
-
-        # Add headers to all responses
-        async def send_with_cors(message):
-            if message["type"] == "http.response.start":
-                headers = list(message.get("headers", []))
-                headers.append((b"access-control-allow-origin", b"*"))
-                headers.append((b"access-control-allow-methods", b"GET,POST,PUT,DELETE,OPTIONS"))
-                headers.append((b"access-control-allow-headers", b"*"))
-                headers.append((b"access-control-expose-headers", b"*"))
-                message["headers"] = headers
-            await send(message)
-
-        await self.app(scope, receive, send_with_cors)
-
-
-# Create FastAPI app
 app = FastAPI(
     title="Technical Support Copilot - Ingestion Service",
+    version="1.0.0",
+    description="RAG system with semantic search and LLM generation"
 )
 
-# Add custom CORS middleware
-app.add_middleware(CORSHeaderMiddleware)
+# Add CORS middleware with specific origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "X-API-Key"],
+    expose_headers=["Content-Type"],
+    max_age=3600,
+)
 
 # Include routers
 app.include_router(search_router)
+app.include_router(ingest_router)
 app.include_router(metrics_router)
+
+@app.on_event("startup")
+async def startup():
+    """Initialize database on startup."""
+    try:
+        db_client.init_db()
+        logger.info("Application started successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        raise
+
+@app.on_event("shutdown")
+async def shutdown():
+    """Cleanup on shutdown."""
+    logger.info("Application shutting down")
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "version": "0.1.0", "provider": "groq"}
+    """Health check endpoint."""
+    return {
+        "status": "ok",
+        "version": "1.0.0",
+        "provider": "groq"
+    }
 
 if __name__ == "__main__":
     import uvicorn

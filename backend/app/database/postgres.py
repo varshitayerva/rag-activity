@@ -1,13 +1,19 @@
-"""PostgreSQL client for document and chunk storage."""
+"""PostgreSQL client with connection pooling."""
 
 import psycopg2
+from psycopg2 import pool
 from psycopg2.extras import RealDictCursor
 import os
 from typing import List, Dict, Any
 from contextlib import contextmanager
+import logging
+
+logger = logging.getLogger(__name__)
 
 class PostgresClient:
-    """PostgreSQL client for document and chunk storage."""
+    """PostgreSQL client with connection pooling."""
+
+    _pool = None
 
     def __init__(self):
         self.conn_params = {
@@ -17,15 +23,38 @@ class PostgresClient:
             'password': os.getenv('DB_PASSWORD', 'postgres'),
             'database': os.getenv('DB_NAME', 'fde_rag'),
         }
+        self._init_pool()
+
+    def _init_pool(self):
+        """Initialize connection pool."""
+        if PostgresClient._pool is None:
+            try:
+                PostgresClient._pool = pool.SimpleConnectionPool(
+                    minconn=2,
+                    maxconn=20,
+                    **self.conn_params
+                )
+                logger.info("Database connection pool initialized (2-20 connections)")
+            except Exception as e:
+                logger.error(f"Failed to create connection pool: {e}")
+                raise
 
     @contextmanager
     def get_connection(self):
-        """Context manager for database connections."""
-        conn = psycopg2.connect(**self.conn_params)
+        """Get connection from pool."""
+        conn = None
         try:
+            conn = PostgresClient._pool.getconn()
             yield conn
+            conn.commit()
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            logger.error(f"Database error: {e}")
+            raise
         finally:
-            conn.close()
+            if conn:
+                PostgresClient._pool.putconn(conn)
 
     def init_db(self):
         """Initialize database schema."""
