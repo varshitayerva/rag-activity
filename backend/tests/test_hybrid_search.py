@@ -7,9 +7,9 @@ import os
 # Add backend to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from app.search.bm25_search import BM25SearchEngine
-from app.search.rrf_fusion import RRFFusion
-from app.search.embeddings import EmbeddingsClient
+from backend.app.search.bm25_search import BM25SearchEngine
+from backend.app.search.rrf_fusion import RRFFusion
+from backend.app.search.embeddings import EmbeddingsClient
 
 class TestBM25Search:
     """Test BM25 sparse search implementation."""

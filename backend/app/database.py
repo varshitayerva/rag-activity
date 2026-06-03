@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.config import get_settings
+from backend.app.config import get_settings
 
 settings = get_settings()
 
@@ -15,5 +15,5 @@ def get_db():
         db.close()
 
 def init_db():
-    from app.models import Base
+    from backend.app.models import Base
     Base.metadata.create_all(bind=engine)

@@ -18,7 +18,7 @@ sys.modules['openai'] = MagicMock()
 # Add app to path
 sys.path.insert(0, os.path.dirname(__file__))
 
-from app.search.qdrant_client import QdrantVectorDB
+from backend.app.search.qdrant_client import QdrantVectorDB
 
 def generate_mock_embeddings(chunks):
     """Generate deterministic mock embeddings based on chunk text."""

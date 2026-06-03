@@ -1,10 +1,10 @@
 from fastapi import FastAPI, File, UploadFile, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from app.database import get_db, init_db
-from app.ingestion.service import IngestionService
-from app.schemas import IngestRequest, IngestResponse, DocumentResponse, DocumentDetailResponse
-from app.config import get_settings
+from backend.app.database import get_db, init_db
+from backend.app.ingestion.service import IngestionService
+from backend.app.schemas import IngestRequest, IngestResponse, DocumentResponse, DocumentDetailResponse
+from backend.app.config import get_settings
 
 app = FastAPI(title="Technical Support Copilot - Ingestion Service")
 

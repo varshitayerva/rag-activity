@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 sys.modules['openai'] = MagicMock()
 sys.path.insert(0, os.path.dirname(__file__))
 
-from app.search.qdrant_client import QdrantVectorDB
+from backend.app.search.qdrant_client import QdrantVectorDB
 
 def verify_vectordb():
     """Verify Qdrant storage and retrieve collection info."""

@@ -1,10 +1,10 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
 import uuid
-from app.ingestion.parser import get_parser
-from app.ingestion.chunker import FixedChunker, SemanticChunker, Chunk
-from app.ingestion.metadata import MetadataExtractor
-from app.models import Document, Chunk as ChunkModel
+from backend.app.ingestion.parser import get_parser
+from backend.app.ingestion.chunker import FixedChunker, SemanticChunker, Chunk
+from backend.app.ingestion.metadata import MetadataExtractor
+from backend.app.models import Document, Chunk as ChunkModel
 
 
 class IngestionService:

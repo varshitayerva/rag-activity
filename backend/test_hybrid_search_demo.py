@@ -29,8 +29,8 @@ sys.modules['openai'] = MagicMock()
 sys.path.insert(0, os.path.dirname(__file__))
 
 # Now import the modules
-from app.search.bm25_search import BM25SearchEngine
-from app.search.rrf_fusion import RRFFusion
+from backend.app.search.bm25_search import BM25SearchEngine
+from backend.app.search.rrf_fusion import RRFFusion
 
 # Sample technical support documents
 SAMPLE_CHUNKS = [

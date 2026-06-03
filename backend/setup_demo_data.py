@@ -8,9 +8,9 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 
-from app.search.qdrant_client import QdrantVectorDB
-from app.search.bm25_search import BM25SearchEngine
-from app.search.embeddings import EmbeddingsClient
+from backend.app.search.qdrant_client import QdrantVectorDB
+from backend.app.search.bm25_search import BM25SearchEngine
+from backend.app.search.embeddings import EmbeddingsClient
 import hashlib
 import numpy as np
 
