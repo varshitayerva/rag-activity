@@ -1,8 +1,8 @@
 """Demo 3: Cache Speedup - Cold vs Warm Latency Demonstration."""
 
 from typing import Dict, Any
-from app.cache.latency import LatencyBreakdown, PerformanceAnalyzer
-from app.cache.compression import ContextCompressor
+from backend.app.cache.latency import LatencyBreakdown, PerformanceAnalyzer
+from backend.app.cache.compression import ContextCompressor
 
 
 class Demo3Scenario:

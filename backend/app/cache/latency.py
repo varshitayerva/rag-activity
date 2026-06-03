@@ -4,7 +4,7 @@ import time
 from typing import Dict, Any, Callable, TypeVar, Optional
 from functools import wraps
 from dataclasses import dataclass, field
-from app.cache.metrics import MetricsCollector
+from backend.app.cache.metrics import MetricsCollector
 
 T = TypeVar("T")
 

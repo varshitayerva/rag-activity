@@ -1,17 +1,17 @@
-from app.cache.redis_cache import RedisCache
-from app.cache.metrics import MetricsCollector, CacheMetrics
-from app.cache.retrieval_cache import RetrievalCache, get_retrieval_cache
-from app.cache.response_cache import ResponseCache, get_response_cache
-from app.cache.cache_manager import CacheManager, get_cache_manager
-from app.cache.compression import ContextCompressor, get_compressor
-from app.cache.latency import (
+from backend.app.cache.redis_cache import RedisCache
+from backend.app.cache.metrics import MetricsCollector, CacheMetrics
+from backend.app.cache.retrieval_cache import RetrievalCache, get_retrieval_cache
+from backend.app.cache.response_cache import ResponseCache, get_response_cache
+from backend.app.cache.cache_manager import CacheManager, get_cache_manager
+from backend.app.cache.compression import ContextCompressor, get_compressor
+from backend.app.cache.latency import (
     LatencyTimer,
     LatencyBreakdown,
     PerformanceAnalyzer,
     measure_latency,
 )
-from app.cache.demo3 import Demo3Scenario, DEMO_3_REPORT
-from app.cache.search_context import (
+from backend.app.cache.demo3 import Demo3Scenario, DEMO_3_REPORT
+from backend.app.cache.search_context import (
     Chunk,
     SearchResult,
     GenerationRequest,

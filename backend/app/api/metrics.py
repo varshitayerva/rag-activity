@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.cache import MetricsCollector, Demo3Scenario
+from backend.app.cache import MetricsCollector, Demo3Scenario
 
 router = APIRouter(prefix="/api", tags=["metrics"])
 

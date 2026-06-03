@@ -2,14 +2,14 @@
 
 import time
 from typing import Optional, Dict, Any, Callable, Awaitable, List
-from app.cache.redis_cache import RedisCache
-from app.cache.retrieval_cache import RetrievalCache, get_retrieval_cache
-from app.cache.response_cache import ResponseCache, get_response_cache
-from app.cache.compression import ContextCompressor, get_compressor
-from app.cache.latency import LatencyBreakdown, PerformanceAnalyzer
-from app.cache.search_context import SearchResult, GenerationResponse, Chunk
-from app.cache.metrics import MetricsCollector
-from app.config import get_settings
+from backend.app.cache.redis_cache import RedisCache
+from backend.app.cache.retrieval_cache import RetrievalCache, get_retrieval_cache
+from backend.app.cache.response_cache import ResponseCache, get_response_cache
+from backend.app.cache.compression import ContextCompressor, get_compressor
+from backend.app.cache.latency import LatencyBreakdown, PerformanceAnalyzer
+from backend.app.cache.search_context import SearchResult, GenerationResponse, Chunk
+from backend.app.cache.metrics import MetricsCollector
+from backend.app.config import get_settings
 
 
 class CacheManager:

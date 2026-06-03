@@ -3,10 +3,10 @@
 import json
 import hashlib
 from typing import Optional, Dict, Any, Callable, Awaitable
-from app.cache.search_context import SearchResult
-from app.cache.redis_cache import RedisCache
-from app.cache.metrics import MetricsCollector
-from app.config import get_settings
+from backend.app.cache.search_context import SearchResult
+from backend.app.cache.redis_cache import RedisCache
+from backend.app.cache.metrics import MetricsCollector
+from backend.app.config import get_settings
 
 
 class RetrievalCache:

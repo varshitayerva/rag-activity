@@ -2,8 +2,8 @@ import json
 import hashlib
 from redis import asyncio as aioredis
 from typing import Optional, Any, Dict, List
-from app.config import get_settings
-from app.cache.metrics import MetricsCollector
+from backend.app.config import get_settings
+from backend.app.cache.metrics import MetricsCollector
 
 
 class RedisCache:

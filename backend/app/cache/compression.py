@@ -2,8 +2,8 @@
 
 from typing import List, Dict, Any
 import tiktoken
-from app.cache.search_context import Chunk
-from app.config import get_settings
+from backend.app.cache.search_context import Chunk
+from backend.app.config import get_settings
 
 
 class ContextCompressor:
