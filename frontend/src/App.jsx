@@ -41,19 +41,20 @@ function App() {
   const [newApiKey, setNewApiKey] = useState('')
   const [showRegPassword, setShowRegPassword] = useState(false)
 
-  const handleLogin = async (e) => {
-    e.preventDefault()
+  const handleLogin = async (keyFromModal) => {
     setIsLoggingIn(true)
     setLoginError('')
     try {
+      // Use key from modal if provided, otherwise use tempApiKey
+      const keyToUse = keyFromModal || tempApiKey
       const response = await fetch('http://localhost:8007/api/user/profile', {
-        headers: { 'X-API-Key': tempApiKey }
+        headers: { 'X-API-Key': keyToUse }
       })
       if (response.ok) {
         const data = await response.json()
-        setApiKey(tempApiKey)
+        setApiKey(keyToUse)
         setUserEmail(data.user.email)
-        localStorage.setItem('apiKey', tempApiKey)
+        localStorage.setItem('apiKey', keyToUse)
         localStorage.setItem('userEmail', data.user.email)
         setShowLoginModal(false)
         setTempApiKey('')
@@ -75,20 +76,14 @@ function App() {
     setShowLoginModal(true)
   }
 
-  const handleRegister = async (e) => {
-    e.preventDefault()
+  const handleRegister = async (userData) => {
     setIsRegistering(true)
     setRegistrationError('')
     try {
       const response = await fetch('http://localhost:8007/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: regUsername,
-          email: regEmail,
-          password: regPassword,
-          department: regDepartment
-        })
+        body: JSON.stringify(userData)
       })
       if (response.ok) {
         const data = await response.json()
