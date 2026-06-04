@@ -18,8 +18,8 @@ export function MetricsBar() {
     }
 
     fetchMetrics()
-    // Update metrics every second (as per plan)
-    const interval = setInterval(fetchMetrics, 1000)
+    // Update metrics every 15 seconds
+    const interval = setInterval(fetchMetrics, 15000)
 
     return () => clearInterval(interval)
   }, [])

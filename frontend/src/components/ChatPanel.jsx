@@ -66,7 +66,7 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-7 space-y-5">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.length === 0 && (
           <div className="h-full flex items-center justify-center">
             <div className="text-center max-w-sm">
@@ -116,7 +116,7 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in gap-3 w-full`}
           >
             <div
-              className={`max-w-2xl px-5 py-4 rounded-2xl font-medium ${
+              className={`max-w-lg px-4 py-3 rounded-xl font-medium ${
                 msg.role === 'user'
                   ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-br-none shadow-xl hover:shadow-2xl transition-shadow'
                   : msg.error
@@ -168,7 +168,7 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
 
         {loading && (
           <div className="flex justify-start animate-fade-in gap-3">
-            <div className="bg-gradient-to-r from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-800/20 px-6 py-4 rounded-2xl rounded-bl-none border-2 border-blue-300 dark:border-blue-700/50 shadow-md">
+            <div className="bg-gradient-to-r from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-800/20 px-4 py-3 rounded-xl rounded-bl-none border-2 border-blue-300 dark:border-blue-700/50 shadow-md">
               <div className="flex gap-3 items-center">
                 <div className="flex gap-2">
                   <div className="w-3 h-3 bg-gradient-to-r from-blue-600 to-blue-700 rounded-full animate-bounce"></div>
@@ -183,20 +183,20 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="p-6 border-t-2 border-blue-200 dark:border-blue-800 bg-gradient-to-r from-white to-blue-50 dark:from-gray-800 dark:to-gray-900">
-        <div className="flex gap-3 items-center">
+      <form onSubmit={handleSubmit} className="p-4 border-t-2 border-blue-200 dark:border-blue-800 bg-gradient-to-r from-white to-blue-50 dark:from-gray-800 dark:to-gray-900">
+        <div className="flex gap-2 items-center">
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="🔍 Ask anything about your documents..."
             disabled={loading}
-            className="flex-1 px-5 py-3 rounded-full bg-white dark:bg-gray-700/50 border-2 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 disabled:opacity-60 transition-all duration-300"
+            className="flex-1 px-4 py-2.5 rounded-full bg-white dark:bg-gray-700/50 border-2 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 disabled:opacity-60 transition-all duration-300 text-sm"
           />
           <button
             type="submit"
             disabled={loading || !query.trim()}
-            className="px-7 py-3 rounded-full bg-gradient-to-r from-blue-600 via-blue-700 to-purple-700 hover:from-blue-700 hover:via-blue-800 hover:to-purple-800 text-white font-bold hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center gap-2 shadow-xl transform hover:scale-105"
+            className="px-5 py-2.5 rounded-full bg-gradient-to-r from-blue-600 via-blue-700 to-purple-700 hover:from-blue-700 hover:via-blue-800 hover:to-purple-800 text-white font-bold hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl"
           >
             <Send size={20} />
             <span className="hidden sm:inline">Search</span>

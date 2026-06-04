@@ -117,30 +117,23 @@ class HybridSearchService:
         # Truncate to top_k
         final_results = filtered_results[:top_k]
 
-        # Calculate confidence scores based on vector similarity
-        confidence_scores = []
-        if vector_results and len(final_results) > 0:
-            top_vector_score = vector_results[0]['score'] if vector_results else 0
-            for result in final_results:
-                # Use vector score as confidence (already 0-1 range)
-                # Find corresponding vector result
-                vector_conf = 0.0
-                for vr in vector_results:
-                    if vr['text'] == result['text']:
-                        vector_conf = max(0.0, min(1.0, vr['score']))
-                        break
-                confidence_scores.append(vector_conf)
-        else:
-            confidence_scores = [0.5] * len(final_results)
+        # Calculate confidence scores from actual vector similarity (cosine similarity 0-1)
+        # Use the top vector search result's similarity score (not RRF score)
+        confidence_score = 0.5
+        if vector_results and len(vector_results) > 0:
+            # vector_results[0]['score'] is the actual cosine similarity from postgres (0-1 range)
+            # This is the real relevance score, not the RRF-fused score
+            top_vector_similarity = float(vector_results[0].get('score', 0.5))
+            confidence_score = max(0.0, min(1.0, top_vector_similarity))
+            logger.info(f"Query confidence: {confidence_score:.3f} (from vector similarity)")
 
-        # Add confidence score to results
-        for i, result in enumerate(final_results):
-            result['confidence_score'] = confidence_scores[i] if i < len(confidence_scores) else 0.5
+        # Add confidence score and level to results
+        for result in final_results:
+            result['confidence_score'] = confidence_score
             # Determine confidence level
-            conf = result['confidence_score']
-            if conf >= 0.7:
+            if confidence_score >= 0.7:
                 result['confidence_level'] = 'high'
-            elif conf >= 0.4:
+            elif confidence_score >= 0.4:
                 result['confidence_level'] = 'medium'
             else:
                 result['confidence_level'] = 'low'
@@ -159,15 +152,12 @@ class HybridSearchService:
 
         latency['total_ms'] = int((time.time() - start_time) * 1000)
 
-        # Calculate average confidence for overall response
-        avg_confidence = sum(r['confidence_score'] for r in final_results) / len(final_results) if final_results else 0.0
-
         return {
             'query': query,
             'chunks': final_results,
             'search_type': 'hybrid',
             'num_results': len(final_results),
-            'confidence_score': round(avg_confidence, 3),
+            'confidence_score': round(confidence_score, 3),
             'latency_ms': latency,
         }
 
