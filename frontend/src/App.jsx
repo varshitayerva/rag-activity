@@ -12,7 +12,7 @@ import { MonitoringDashboard } from './components/MonitoringDashboard'
 import { AdminDashboard } from './components/AdminDashboard'
 import { UserStatsDashboard } from './components/UserStatsDashboard'
 import { apiClient } from './utils/api'
-import { Search, Upload, Moon, Sun, Menu, X, User, MessageSquare, Zap, Activity, BarChart3, LineChart } from 'lucide-react'
+import { Search, Upload, Moon, Sun, Menu, X, User, MessageSquare, Zap, Activity, BarChart3, LineChart, LogOut, Lock } from 'lucide-react'
 
 function App() {
   const [view, setView] = useState('chat')
@@ -22,8 +22,49 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [documentCount, setDocumentCount] = useState(0)
   const [chunkCount, setChunkCount] = useState(0)
+  const [apiKey, setApiKey] = useState(localStorage.getItem('apiKey') || '')
+  const [showLoginModal, setShowLoginModal] = useState(!apiKey)
+  const [loginError, setLoginError] = useState('')
+  const [tempApiKey, setTempApiKey] = useState('')
+  const [isLoggingIn, setIsLoggingIn] = useState(false)
+  const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || '')
+
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    setIsLoggingIn(true)
+    setLoginError('')
+    try {
+      const response = await fetch('http://localhost:8003/api/user/profile', {
+        headers: { 'X-API-Key': tempApiKey }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setApiKey(tempApiKey)
+        setUserEmail(data.user.email)
+        localStorage.setItem('apiKey', tempApiKey)
+        localStorage.setItem('userEmail', data.user.email)
+        setShowLoginModal(false)
+        setTempApiKey('')
+      } else {
+        setLoginError('Invalid API key')
+      }
+    } catch (error) {
+      setLoginError('Failed to authenticate. Make sure backend is running.')
+    } finally {
+      setIsLoggingIn(false)
+    }
+  }
+
+  const handleLogout = () => {
+    setApiKey('')
+    setUserEmail('')
+    localStorage.removeItem('apiKey')
+    localStorage.removeItem('userEmail')
+    setShowLoginModal(true)
+  }
 
   useEffect(() => {
+    if (!apiKey) return
     const fetchCounts = async () => {
       try {
         const docs = await apiClient.getDocuments()
@@ -33,7 +74,9 @@ function App() {
       }
     }
     fetchCounts()
-  }, [])
+    const interval = setInterval(fetchCounts, 10000)
+    return () => clearInterval(interval)
+  }, [apiKey])
 
   useEffect(() => {
     const fetchChunks = async () => {
@@ -81,6 +124,53 @@ function App() {
     { id: 'stats', label: 'My Stats', icon: LineChart },
   ]
 
+  if (showLoginModal) {
+    return (
+      <div className={`h-screen flex items-center justify-center ${darkMode ? 'dark' : ''} bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 dark:from-blue-900 dark:via-purple-900 dark:to-slate-950`}>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 w-96">
+          <div className="flex justify-center mb-6">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center">
+              <Lock size={32} className="text-white" />
+            </div>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white text-center mb-2">AI Search Copilot</h1>
+          <p className="text-gray-600 dark:text-gray-400 text-center mb-8">Sign in with your API key</p>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">API Key</label>
+              <input
+                type="password"
+                value={tempApiKey}
+                onChange={(e) => setTempApiKey(e.target.value)}
+                placeholder="sk-demo-key-12345"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                required
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                Demo key: sk-demo-key-12345
+              </p>
+            </div>
+
+            {loginError && (
+              <div className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 rounded-lg text-red-700 dark:text-red-300 text-sm">
+                {loginError}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLoggingIn}
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-3 px-4 rounded-lg transition disabled:opacity-50"
+            >
+              {isLoggingIn ? 'Signing in...' : 'Sign In'}
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`h-screen flex flex-col ${darkMode ? 'dark' : ''}`}>
       {/* Header */}
@@ -98,20 +188,33 @@ function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-full p-1 border border-white/20">
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2.5 rounded-full hover:bg-white/20 transition-all duration-300 transform hover:scale-110"
-              title="Toggle dark mode"
-            >
-              {darkMode ? <Sun size={22} className="text-yellow-300" /> : <Moon size={22} className="text-blue-200" />}
-            </button>
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2.5 rounded-full hover:bg-white/20 transition-all duration-300 lg:hidden"
-            >
-              {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
-            </button>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-sm text-blue-100">{userEmail || 'Demo User'}</p>
+              <p className="text-xs text-blue-200">Logged in</p>
+            </div>
+            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-full p-1 border border-white/20">
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-2.5 rounded-full hover:bg-white/20 transition-all duration-300 transform hover:scale-110"
+                title="Toggle dark mode"
+              >
+                {darkMode ? <Sun size={22} className="text-yellow-300" /> : <Moon size={22} className="text-blue-200" />}
+              </button>
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2.5 rounded-full hover:bg-white/20 transition-all duration-300 lg:hidden"
+              >
+                {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
+              </button>
+              <button
+                onClick={handleLogout}
+                className="p-2.5 rounded-full hover:bg-white/20 transition-all duration-300"
+                title="Logout"
+              >
+                <LogOut size={22} />
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -240,7 +343,7 @@ function App() {
             {view === 'profile' && (
               <div className="h-full overflow-y-auto p-8">
                 <div className="max-w-4xl mx-auto">
-                  <UserProfile apiKey="sk-demo-key-12345" />
+                  <UserProfile apiKey={apiKey} />
                 </div>
               </div>
             )}
@@ -248,7 +351,7 @@ function App() {
             {view === 'feedback' && (
               <div className="h-full overflow-y-auto p-8">
                 <div className="max-w-3xl mx-auto">
-                  <FeedbackPanel apiKey="sk-demo-key-12345" />
+                  <FeedbackPanel apiKey={apiKey} />
                 </div>
               </div>
             )}
@@ -256,7 +359,7 @@ function App() {
             {view === 'cache' && (
               <div className="h-full overflow-y-auto p-8">
                 <div className="max-w-4xl mx-auto">
-                  <CacheDashboard apiKey="sk-demo-key-12345" />
+                  <CacheDashboard apiKey={apiKey} />
                 </div>
               </div>
             )}
@@ -264,7 +367,7 @@ function App() {
             {view === 'monitoring' && (
               <div className="h-full overflow-y-auto p-8">
                 <div className="max-w-6xl mx-auto">
-                  <MonitoringDashboard apiKey="sk-demo-key-12345" />
+                  <MonitoringDashboard apiKey={apiKey} />
                 </div>
               </div>
             )}
