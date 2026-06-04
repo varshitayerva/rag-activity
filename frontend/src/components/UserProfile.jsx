@@ -14,7 +14,7 @@ export function UserProfile({ apiKey }) {
     const fetchProfile = async () => {
       try {
         // Fetch profile
-        const profileRes = await fetch('http://localhost:8007/api/user/profile', {
+        const profileRes = await fetch('http://localhost:8007/api/auth/profile', {
           headers: { 'X-API-Key': apiKey }
         })
         if (profileRes.ok) {
@@ -79,7 +79,7 @@ export function UserProfile({ apiKey }) {
   const handleSave = async () => {
     setSaving(true)
     try {
-      const response = await fetch('http://localhost:8007/api/user/profile', {
+      const response = await fetch('http://localhost:8007/api/auth/profile', {
         method: 'PUT',
         headers: {
           'X-API-Key': apiKey,
@@ -268,30 +268,6 @@ export function UserProfile({ apiKey }) {
         </div>
       </div>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg p-6">
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Searches</p>
-          <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.search_count}</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 rounded-lg p-6">
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Generations</p>
-          <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">{stats.generation_count}</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 rounded-lg p-6">
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Total Queries</p>
-          <p className="text-3xl font-bold text-green-600 dark:text-green-400">{stats.total_queries}</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 rounded-lg p-6">
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Last Login</p>
-          <p className="text-lg font-bold text-orange-600 dark:text-orange-400">
-            {stats.last_login ? new Date(stats.last_login).toLocaleDateString() : 'Never'}
-          </p>
-        </div>
-      </div>
     </div>
   )
 }

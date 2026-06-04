@@ -35,18 +35,18 @@ export function AuthModal({
 
   return (
     <div className={`h-screen flex items-center justify-center ${darkMode ? 'dark' : ''} bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 dark:from-blue-900 dark:via-purple-900 dark:to-slate-950 overflow-auto`}>
-      <div className="w-full max-w-md mx-4 my-8">
+      <div className="w-full max-w-2xl mx-4 my-8">
         {/* Main Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-12 border border-gray-200 dark:border-gray-700">
           {/* Logo */}
-          <div className="flex justify-center mb-6">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-3xl flex items-center justify-center shadow-xl transform hover:scale-110 transition-transform duration-300">
-              <Lock size={40} className="text-white" />
+          <div className="flex justify-center mb-8">
+            <div className="w-24 h-24 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-3xl flex items-center justify-center shadow-xl transform hover:scale-110 transition-transform duration-300">
+              <Lock size={52} className="text-white" />
             </div>
           </div>
 
           {/* Header */}
-          <h1 className="text-4xl font-black text-gray-900 dark:text-white text-center mb-2">AI Search Copilot</h1>
+          <h1 className="text-5xl font-black text-gray-900 dark:text-white text-center mb-3">AI Search Copilot</h1>
 
           {/* Tabs */}
           <div className="flex gap-2 mb-8 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
@@ -75,7 +75,7 @@ export function AuthModal({
           {/* LOGIN TAB */}
           {showTab === 'login' && (
             <>
-              <p className="text-gray-600 dark:text-gray-400 text-center mb-6 font-medium">Sign in to your account</p>
+              <p className="text-gray-600 dark:text-gray-400 text-center mb-8 font-medium text-lg">Sign in to your account</p>
 
               {/* Login Method Toggle */}
               <div className="flex gap-2 mb-6 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
@@ -110,18 +110,18 @@ export function AuthModal({
                 } else {
                   onLogin({ username: loginUsername, password: loginPassword })
                 }
-              }} className="space-y-5">
+              }} className="space-y-6">
                 {/* API Key Login */}
                 {loginMethod === 'api' && (
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">API Key</label>
+                    <label className="block text-base font-bold text-gray-700 dark:text-gray-300 mb-3">API Key</label>
                     <div className="relative">
                       <input
                         type={showPassword ? 'text' : 'password'}
                         value={apiKey}
                         onChange={(e) => setApiKey(e.target.value)}
                         placeholder="sk-demo-key-12345"
-                        className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
+                        className="w-full px-5 py-3.5 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 text-base"
                         required
                       />
                       <button
@@ -139,25 +139,25 @@ export function AuthModal({
                 {loginMethod === 'password' && (
                   <>
                     <div>
-                      <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Username</label>
+                      <label className="block text-base font-bold text-gray-700 dark:text-gray-300 mb-3">Username</label>
                       <input
                         type="text"
                         value={loginUsername}
                         onChange={(e) => setLoginUsername(e.target.value)}
                         placeholder="johndoe"
-                        className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
+                        className="w-full px-5 py-3.5 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 text-base"
                         required
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Password</label>
+                      <label className="block text-base font-bold text-gray-700 dark:text-gray-300 mb-3">Password</label>
                       <div className="relative">
                         <input
                           type={showPassword ? 'text' : 'password'}
                           value={loginPassword}
                           onChange={(e) => setLoginPassword(e.target.value)}
                           placeholder="••••••••"
-                          className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
+                          className="w-full px-5 py-3.5 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300 text-base"
                           required
                         />
                         <button
@@ -204,7 +204,7 @@ export function AuthModal({
                 <button
                   type="submit"
                   disabled={isLoggingIn || !apiKey}
-                  className="w-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold py-3.5 px-4 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:scale-105"
+                  className="w-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold py-4 px-4 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:scale-105 text-lg"
                 >
                   {isLoggingIn ? (
                     <span className="flex items-center justify-center gap-2">

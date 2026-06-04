@@ -28,9 +28,9 @@ class RegisterResponse(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    api_key: str = None
-    username: str = None
-    password: str = None
+    api_key: str | None = None
+    username: str | None = None
+    password: str | None = None
 
 
 @router.post("/register", response_model=RegisterResponse)

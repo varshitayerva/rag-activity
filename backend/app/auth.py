@@ -28,17 +28,34 @@ RATE_LIMIT_WINDOW = 60  # 1 minute
 
 def verify_api_key(request: Request) -> str:
     """Verify API key from request header."""
+    from backend.app.database.postgres import db_client
+
     api_key = request.headers.get("X-API-Key")
 
     if not api_key:
         logger.warning(f"Request from {request.client.host} without API key")
         raise HTTPException(status_code=401, detail="Missing API key")
 
-    if api_key not in VALID_API_KEYS:
-        logger.warning(f"Invalid API key from {request.client.host}: {api_key[:10]}...")
-        raise HTTPException(status_code=401, detail="Invalid API key")
+    # Check demo keys first (for backward compatibility)
+    if api_key in VALID_API_KEYS:
+        return api_key
 
-    return api_key
+    # Check database for user's API key
+    try:
+        with db_client.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id FROM users
+                WHERE api_key = %s AND is_active = true
+            """, (api_key,))
+            result = cursor.fetchone()
+            if result:
+                return api_key
+    except Exception as e:
+        logger.error(f"Error verifying API key in database: {str(e)}")
+
+    logger.warning(f"Invalid API key from {request.client.host}: {api_key[:10]}...")
+    raise HTTPException(status_code=401, detail="Invalid API key")
 
 def check_rate_limit(api_key: str) -> bool:
     """Check if API key has exceeded rate limit."""
