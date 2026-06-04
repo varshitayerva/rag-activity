@@ -3,122 +3,55 @@ from fastapi.responses import StreamingResponse
 from typing import Optional, Dict, Any
 import time
 import logging
-from backend.app.search.vector_store import get_vector_store
+from backend.app.search.hybrid_search import HybridSearchService
 from backend.app.database.postgres import db_client
 from backend.app.cache.metrics import MetricsCollector
 from backend.app.generation.service import generate_answer, stream_answer
 from backend.app.validation import validate_search_query, validate_filters
 from backend.app.auth import require_auth, require_demo_mode
-from backend.app.search.ingest_routes import router as ingest_router
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["search"])
 
-def search_chunks(query: str, top_k: int = 10, filters: Dict[str, Any] = None) -> list:
-    """Search chunks using vector similarity with optional filtering."""
+# Global hybrid search service (initialized on first use)
+_hybrid_search_service = None
+
+def get_hybrid_search_service() -> HybridSearchService:
+    """Get or create hybrid search service instance (singleton)."""
+    global _hybrid_search_service
+    if _hybrid_search_service is None:
+        logger.info("Initializing HybridSearchService")
+        _hybrid_search_service = HybridSearchService()
+        logger.info(f"HybridSearchService ready: {_hybrid_search_service.get_index_stats()}")
+    return _hybrid_search_service
+
+
+async def search_chunks(query: str, top_k: int = 10, filters: Dict[str, Any] = None) -> list:
+    """Search chunks using hybrid search (pgvector + BM25 with RRF fusion)."""
     try:
-        # Get vector store
-        vs = get_vector_store()
+        hybrid_search = get_hybrid_search_service()
 
-        # If vector store is empty, load from database
-        if vs.size() == 0:
-            print("Vector store empty, loading from database...")
-            load_vector_store_from_db(vs)
-
-        # Search
-        results = vs.search(query, top_k=top_k)
-
-        # Apply filters to results
+        metadata_filter = None
         if filters:
-            results = apply_filters(results, filters)
+            metadata_filter = {}
+            if filters.get('department'):
+                metadata_filter['department'] = filters['department']
+            if filters.get('category'):
+                metadata_filter['category'] = filters['category']
+            if filters.get('dateFrom'):
+                metadata_filter['dateFrom'] = filters['dateFrom']
+            if filters.get('dateTo'):
+                metadata_filter['dateTo'] = filters['dateTo']
 
-        return results
+        result = await hybrid_search.search(query, top_k=top_k, metadata_filter=metadata_filter)
+        return result.get('chunks', [])
     except Exception as e:
-        print(f"Vector search error: {e}")
+        logger.error(f"Hybrid search error: {e}")
         return []
-
-
-def apply_filters(results: list, filters: Dict[str, Any] = None) -> list:
-    """Filter search results by relevance, department, category, and date."""
-    # Filter by relevance threshold - show only highly relevant results
-    if not results:
-        return []
-
-    # Sort by score descending
-    sorted_results = sorted(results, key=lambda x: x.get('score', 0), reverse=True)
-
-    # Keep results that are at least 60% of the top score to reduce noise
-    if sorted_results:
-        top_score = sorted_results[0].get('score', 0)
-        threshold = max(top_score * 0.6, 0.1)  # 60% of top score, minimum 0.1
-        filtered = [r for r in sorted_results if r.get('score', 0) >= threshold]
-    else:
-        filtered = []
-
-    if not filters:
-        return filtered
-
-    department = filters.get('department')
-    category = filters.get('category')
-    date_from = filters.get('dateFrom')
-    date_to = filters.get('dateTo')
-
-    # Filter by department
-    if department:
-        filtered = [r for r in filtered if r.get('department') == department]
-
-    # Filter by category
-    if category:
-        filtered = [r for r in filtered if r.get('category') == category]
-
-    # Filter by date range
-    if date_from:
-        filtered = [r for r in filtered if str(r.get('created_at', '')).startswith(date_from)]
-
-    if date_to:
-        filtered = [r for r in filtered if str(r.get('created_at', '')).startswith(date_to) or
-                    str(r.get('created_at', '')[:10]) < date_to]
-
-    return filtered
-
-
-def load_vector_store_from_db(vs):
-    """Load all chunks from database into vector store."""
-    try:
-        chunks = db_client.get_chunks_with_filters()
-        if not chunks:
-            print("No chunks found in database")
-            return
-
-        print(f"Loading {len(chunks)} chunks into vector store...")
-
-        # Prepare chunks for vector store
-        texts = [chunk['text'] for chunk in chunks]
-        metadata_list = [
-            {
-                'chunk_id': chunk['id'],
-                'text': chunk['text'],
-                'doc_id': chunk['document_id'],
-                'doc': chunk.get('filename'),
-                'section': chunk.get('section'),
-                'page_number': chunk.get('page_number'),
-                'department': chunk.get('department'),
-                'category': chunk.get('category'),
-                'created_at': str(chunk.get('created_at', ''))
-            }
-            for chunk in chunks
-        ]
-
-        # Add to vector store
-        vs.add(texts, metadata_list)
-        print(f"Vector store loaded with {len(chunks)} chunks")
-
-    except Exception as e:
-        print(f"Error loading vector store from database: {e}")
 
 
 @router.post("/search")
-async def search(
+async def search_endpoint(
     query: str,
     top_k: int = 10,
     department: str = None,
@@ -127,38 +60,7 @@ async def search(
     dateTo: str = None,
     api_key: Optional[str] = Depends(require_auth) if not require_demo_mode() else None,
 ):
-    """Search across documents using vector embeddings with optional filters.
-
-    Real-time semantic search using sentence-transformers.
-
-    Request:
-    {
-        "query": "How do I restart a pod?",
-        "top_k": 10,
-        "department": "Platform",
-        "category": "Troubleshooting",
-        "dateFrom": "2024-01-01",
-        "dateTo": "2024-12-31"
-    }
-
-    Response:
-    {
-        "query": "How do I restart a pod?",
-        "results": [
-            {
-                "score": 0.95,
-                "text": "chunk text...",
-                "chunk_id": 123,
-                "doc_id": 456,
-                "department": "Platform",
-                "category": "Troubleshooting"
-            }
-        ],
-        "latency_ms": 125,
-        "result_count": 1
-    }
-    """
-    # Validate search query
+    """Search using hybrid search (pgvector HNSW + BM25) with RRF fusion."""
     is_valid, error = validate_search_query(query)
     if not is_valid:
         logger.warning(f"Invalid search query: {error}")
@@ -167,7 +69,6 @@ async def search(
     try:
         start_time = time.time()
 
-        # Build and validate filters
         filters = {}
         if department:
             filters['department'] = department
@@ -183,27 +84,22 @@ async def search(
             logger.warning(f"Invalid filters: {error}")
             raise HTTPException(status_code=400, detail=error)
 
-        logger.info(f"Search: {query[:50]}...")
+        logger.info(f"Hybrid search: {query[:50]}...")
 
-        # Search in vector store with filters
-        results = search_chunks(query, top_k=top_k, filters=filters if filters else None)
-
+        results = await search_chunks(query, top_k=top_k, filters=filters if filters else None)
         latency_ms = int((time.time() - start_time) * 1000)
 
         response = {
             "query": query,
             "results": results,
+            "search_type": "hybrid",
             "latency_ms": latency_ms,
-            "result_count": len(results),
-            "search_type": "vector-semantic"
+            "result_count": len(results)
         }
 
-        # Record metrics
         MetricsCollector.record_latency(latency_ms)
-        MetricsCollector.record_embedding_hit()  # Track search as query
-
-        # Estimate tokens: ~1 token per word in query + ~50 tokens per result
-        input_tokens = len(query.split()) + 10  # Query tokens + buffer
+        MetricsCollector.record_embedding_hit()
+        input_tokens = len(query.split()) + 10
         output_tokens = len(results) * 50 if results else 0
         MetricsCollector.record_tokens(input_tokens, output_tokens)
 
@@ -217,6 +113,7 @@ async def search(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Search failed: {e}")
         MetricsCollector.record_retrieval_miss()
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
@@ -249,15 +146,22 @@ async def get_document_chunks(doc_id: int):
 
 
 @router.post("/search/rebuild")
-async def rebuild_vector_store():
-    """Rebuild the vector store from database."""
+async def rebuild_vector_index():
+    """Rebuild the vector index from database."""
     try:
-        vs = get_vector_store(reset=True)
-        load_vector_store_from_db(vs)
+        hybrid_search = get_hybrid_search_service()
+        chunks = db_client.get_chunks_with_filters()
+        if chunks:
+            hybrid_search.index_chunks(chunks)
+            return {
+                "status": "success",
+                "message": "Vector index rebuilt",
+                "chunks_indexed": len(chunks)
+            }
         return {
             "status": "success",
-            "message": "Vector store rebuilt",
-            "chunks_loaded": vs.size()
+            "message": "No chunks to index",
+            "chunks_indexed": 0
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to rebuild: {str(e)}")
@@ -273,17 +177,13 @@ async def generate(
     dateTo: str = None,
     stream: bool = False
 ):
-    """Search documents and generate an LLM answer using Groq.
-
-    Returns either streamed or complete answer based on 'stream' parameter.
-    """
+    """Search and generate LLM answer using Groq with hybrid search."""
     if not query or len(query.strip()) == 0:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
     try:
         start_time = time.time()
 
-        # Build filters
         filters = {}
         if department:
             filters['department'] = department
@@ -294,8 +194,7 @@ async def generate(
         if dateTo:
             filters['dateTo'] = dateTo
 
-        # Search for relevant documents
-        results = search_chunks(query, top_k=top_k, filters=filters if filters else None)
+        results = await search_chunks(query, top_k=top_k, filters=filters if filters else None)
 
         if not results:
             return {
@@ -305,7 +204,6 @@ async def generate(
                 "latency_ms": int((time.time() - start_time) * 1000)
             }
 
-        # Generate answer using Groq with streaming
         if stream:
             async def generate_stream():
                 for chunk in stream_answer(query, results):
@@ -313,23 +211,20 @@ async def generate(
 
             return StreamingResponse(generate_stream(), media_type="text/event-stream")
 
-        # Non-streaming response
         answer = generate_answer(query, results)
         latency_ms = int((time.time() - start_time) * 1000)
 
         response = {
             "query": query,
             "answer": answer,
-            "sources": results[:3],  # Top 3 sources
+            "sources": results[:3],
             "latency_ms": latency_ms,
             "result_count": len(results)
         }
 
-        # Record metrics
         MetricsCollector.record_latency(latency_ms)
-        MetricsCollector.record_embedding_hit()  # Track query count
+        MetricsCollector.record_embedding_hit()
         MetricsCollector.record_retrieval_hit() if results else MetricsCollector.record_retrieval_miss()
-        tokens = len(query.split()) + len(answer.split())
         MetricsCollector.record_tokens(len(query.split()), len(answer.split()))
 
         return response

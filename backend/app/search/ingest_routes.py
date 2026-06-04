@@ -1,4 +1,4 @@
-"""Document ingestion routes."""
+"""Document ingestion routes with pgvector + BM25 hybrid indexing."""
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Request
 import logging
@@ -6,12 +6,16 @@ import os
 import io
 from typing import Optional
 from backend.app.database.postgres import db_client
-from backend.app.search.vector_store import get_vector_store
+from backend.app.search.hybrid_search import HybridSearchService
+from backend.app.search.embeddings import EmbeddingsClient
 from backend.app.validation import validate_file_upload, sanitize_filename
 from backend.app.auth import require_auth, require_demo_mode
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["ingestion"])
+
+# Import singleton from routes module
+from backend.app.search.routes import get_hybrid_search_service
 
 @router.post("/ingest")
 async def ingest_document(
@@ -105,10 +109,25 @@ async def ingest_document(
 
         db_client.add_chunks(doc_id, chunk_list)
 
-        # Reload vector store
-        vs = get_vector_store(reset=True)
-        from backend.app.search.routes import load_vector_store_from_db
-        load_vector_store_from_db(vs)
+        # Index chunks in hybrid search (pgvector + BM25)
+        try:
+            hybrid_search = get_hybrid_search_service()
+            full_chunks = []
+            for i, chunk_text in enumerate(chunk_list):
+                full_chunks.append({
+                    'document_id': doc_id,
+                    'chunk_index': i,
+                    'text': chunk_text['text'],
+                    'section': chunk_text.get('section'),
+                    'page_number': chunk_text.get('page_number'),
+                    'department': department,
+                    'category': category
+                })
+            hybrid_search.index_chunks(full_chunks)
+            logger.info(f"Indexed {len(full_chunks)} chunks in hybrid search")
+        except Exception as e:
+            logger.error(f"Failed to index chunks in hybrid search: {e}")
+            raise HTTPException(status_code=500, detail=f"Indexing failed: {str(e)}")
 
         logger.info(f"Document ingested: {safe_filename} ({len(chunk_list)} chunks)")
 

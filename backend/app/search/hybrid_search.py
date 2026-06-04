@@ -1,5 +1,6 @@
 import time
 import os
+import logging
 from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
 from .postgres_client import PostgresVectorDB
@@ -8,6 +9,7 @@ from .bm25_search import BM25SearchEngine
 from .rrf_fusion import RRFFusion
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 class HybridSearchService:
     """Hybrid search combining vector (PostgreSQL+pgvector) + sparse (BM25) search with RRF fusion."""
@@ -39,9 +41,11 @@ class HybridSearchService:
             if chunks:
                 texts = [chunk['text'] for chunk in chunks]
                 self.bm25.build_index(texts, chunks)
-                print(f"Initialized BM25 with {len(chunks)} existing chunks")
+                logger.info(f"Initialized BM25 with {len(chunks)} existing chunks")
+            else:
+                logger.info("No chunks found in database for BM25 initialization")
         except Exception as e:
-            print(f"Note: Could not initialize BM25 from existing chunks: {e}")
+            logger.error(f"Failed to initialize BM25 from database: {e}")
 
     def index_chunks(self, chunks: List[Dict[str, Any]]):
         """Index chunks in both PostgreSQL+pgvector (vector) and BM25 (sparse).
