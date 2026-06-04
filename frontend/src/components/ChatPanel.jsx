@@ -21,14 +21,24 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
       const generatedResult = await apiClient.generate(userQuery, 10, filters)
       const chunks = generatedResult.sources || []
       const answer = generatedResult.answer || 'No answer generated'
+      const confidenceScore = generatedResult.confidence_score || 0.5
 
-      // Notify parent of retrieved sources
-      onSourcesUpdate?.(chunks)
+      // Notify parent of retrieved sources with confidence
+      onSourcesUpdate?.(chunks, {
+        query: userQuery,
+        answer: answer,
+        confidence_score: confidenceScore
+      })
 
-      // Display the LLM-generated answer
+      // Display the LLM-generated answer with confidence badge
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: answer, sources: chunks }
+        {
+          role: 'assistant',
+          content: answer,
+          sources: chunks,
+          confidence_score: confidenceScore
+        }
       ])
     } catch (error) {
       console.error('Error:', error)
@@ -103,10 +113,10 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
         {messages.map((msg, idx) => (
           <div
             key={idx}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in gap-3`}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in gap-3 w-full`}
           >
             <div
-              className={`max-w-xl px-5 py-4 rounded-2xl font-medium ${
+              className={`max-w-2xl px-5 py-4 rounded-2xl font-medium ${
                 msg.role === 'user'
                   ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-br-none shadow-xl hover:shadow-2xl transition-shadow'
                   : msg.error
@@ -121,6 +131,34 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
                 </div>
               )}
               <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+
+              {/* Confidence Score Badge */}
+              {msg.confidence_score !== undefined && !msg.error && msg.role === 'assistant' && (
+                <div className="mt-3 pt-3 border-t border-gray-300 dark:border-gray-600">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-600 dark:text-gray-400">Confidence:</span>
+                    <div className="inline-flex items-center gap-1 bg-white dark:bg-gray-600 px-2 py-1 rounded-full text-xs font-semibold">
+                      {msg.confidence_score >= 0.7 ? (
+                        <>
+                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                          <span className="text-green-700 dark:text-green-300">High ({Math.round(msg.confidence_score * 100)}%)</span>
+                        </>
+                      ) : msg.confidence_score >= 0.4 ? (
+                        <>
+                          <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                          <span className="text-yellow-700 dark:text-yellow-300">Medium ({Math.round(msg.confidence_score * 100)}%)</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                          <span className="text-red-700 dark:text-red-300">Low ({Math.round(msg.confidence_score * 100)}%)</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {msg.tokens && (
                 <p className="text-xs mt-3 opacity-75 pt-2 border-t border-white/20">🪙 {msg.tokens} tokens</p>
               )}

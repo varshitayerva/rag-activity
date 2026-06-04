@@ -110,3 +110,21 @@ CREATE INDEX IF NOT EXISTS idx_document_summaries_doc_id ON document_summaries(d
 CREATE INDEX IF NOT EXISTS idx_document_summaries_embedding_hnsw ON document_summaries
     USING hnsw (embedding vector_cosine_ops)
     WITH (m = 8, ef_construction = 32);
+
+-- User feedback table for confidence and answer quality tracking
+CREATE TABLE IF NOT EXISTS query_feedback (
+    id SERIAL PRIMARY KEY,
+    query_id INTEGER REFERENCES search_queries(id) ON DELETE CASCADE,
+    query TEXT NOT NULL,
+    answer TEXT,
+    confidence_score FLOAT,
+    rating INTEGER CHECK (rating IN (-1, 0, 1)),
+    feedback_text TEXT,
+    chunks_used TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_query_feedback_query_id ON query_feedback(query_id);
+CREATE INDEX IF NOT EXISTS idx_query_feedback_rating ON query_feedback(rating);
+CREATE INDEX IF NOT EXISTS idx_query_feedback_created_at ON query_feedback(created_at);

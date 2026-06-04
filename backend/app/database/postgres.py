@@ -314,6 +314,95 @@ class PostgresClient:
             finally:
                 cursor.close()
 
+    # User feedback operations
+    def add_feedback(self, query: str, answer: str = None, confidence_score: float = None,
+                    rating: int = None, feedback_text: str = None, chunks_used: str = None) -> int:
+        """Add user feedback for a query/answer pair."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            try:
+                cursor.execute(
+                    """INSERT INTO query_feedback
+                       (query, answer, confidence_score, rating, feedback_text, chunks_used)
+                       VALUES (%s, %s, %s, %s, %s, %s)
+                       RETURNING id""",
+                    (query, answer, confidence_score, rating, feedback_text, chunks_used)
+                )
+                feedback_id = cursor.fetchone()[0]
+                conn.commit()
+                logger.info(f"Recorded feedback: query={query[:50]}, rating={rating}")
+                return feedback_id
+
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Failed to record feedback: {e}")
+                return None
+            finally:
+                cursor.close()
+
+    def get_feedback_analytics(self, days: int = 30) -> Dict[str, Any]:
+        """Get feedback analytics for last N days."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+            try:
+                # Get summary stats
+                cursor.execute(
+                    """SELECT
+                        COUNT(*) as total_feedback,
+                        SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) as thumbs_up,
+                        SUM(CASE WHEN rating = -1 THEN 1 ELSE 0 END) as thumbs_down,
+                        SUM(CASE WHEN rating = 0 THEN 1 ELSE 0 END) as neutral,
+                        AVG(confidence_score) as avg_confidence
+                       FROM query_feedback
+                       WHERE created_at >= NOW() - INTERVAL '%s days'""",
+                    (days,)
+                )
+                stats = dict(cursor.fetchone())
+
+                # Get low-rated queries
+                cursor.execute(
+                    """SELECT query, COUNT(*) as count, AVG(confidence_score) as avg_confidence
+                       FROM query_feedback
+                       WHERE rating = -1 AND created_at >= NOW() - INTERVAL '%s days'
+                       GROUP BY query
+                       ORDER BY count DESC
+                       LIMIT 10""",
+                    (days,)
+                )
+                low_rated = [dict(row) for row in cursor.fetchall()]
+
+                return {
+                    'stats': stats,
+                    'low_rated_queries': low_rated,
+                    'period_days': days
+                }
+
+            finally:
+                cursor.close()
+
+    def get_low_confidence_queries(self, threshold: float = 0.4, limit: int = 20) -> List[Dict[str, Any]]:
+        """Get queries with confidence below threshold for manual review."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+            try:
+                cursor.execute(
+                    """SELECT query, COUNT(*) as occurrences, AVG(confidence_score) as avg_confidence
+                       FROM query_feedback
+                       WHERE confidence_score < %s
+                       GROUP BY query
+                       ORDER BY occurrences DESC, avg_confidence ASC
+                       LIMIT %s""",
+                    (threshold, limit)
+                )
+
+                return [dict(row) for row in cursor.fetchall()]
+
+            finally:
+                cursor.close()
+
 
 # Global instance
 db_client = PostgresClient()
