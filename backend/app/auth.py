@@ -2,10 +2,12 @@
 
 import os
 from fastapi import HTTPException, Request
-from typing import Callable
+from typing import Callable, Optional
 import time
 import logging
 from functools import wraps
+import secrets
+import string
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +15,11 @@ VALID_API_KEYS = [
     os.getenv('API_KEY_1', 'sk-demo-key-12345'),
     os.getenv('API_KEY_2', 'sk-demo-key-67890'),
 ]
+
+def generate_api_key(length: int = 32) -> str:
+    """Generate a secure API key."""
+    charset = string.ascii_letters + string.digits + '-'
+    return 'sk-' + ''.join(secrets.choice(charset) for _ in range(length))
 
 # Rate limiting: API key -> (request_count, reset_time)
 rate_limit_store = {}

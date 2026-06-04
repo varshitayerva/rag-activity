@@ -11,8 +11,9 @@ import { CacheDashboard } from './components/CacheDashboard'
 import { MonitoringDashboard } from './components/MonitoringDashboard'
 import { AdminDashboard } from './components/AdminDashboard'
 import { UserStatsDashboard } from './components/UserStatsDashboard'
+import { AuthModal } from './components/AuthModal'
 import { apiClient } from './utils/api'
-import { Search, Upload, Moon, Sun, Menu, X, User, MessageSquare, Zap, Activity, BarChart3, LineChart, LogOut, Lock, Copy, Check, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { Search, Upload, Moon, Sun, Menu, X, User, MessageSquare, Zap, Activity, BarChart3, LineChart, LogOut } from 'lucide-react'
 
 function App() {
   const [view, setView] = useState('chat')
@@ -31,6 +32,14 @@ function App() {
   const [showPassword, setShowPassword] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showApiInfo, setShowApiInfo] = useState(false)
+  const [isRegistering, setIsRegistering] = useState(false)
+  const [registrationError, setRegistrationError] = useState('')
+  const [regUsername, setRegUsername] = useState('')
+  const [regEmail, setRegEmail] = useState('')
+  const [regPassword, setRegPassword] = useState('')
+  const [regDepartment, setRegDepartment] = useState('')
+  const [newApiKey, setNewApiKey] = useState('')
+  const [showRegPassword, setShowRegPassword] = useState(false)
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -64,6 +73,42 @@ function App() {
     localStorage.removeItem('apiKey')
     localStorage.removeItem('userEmail')
     setShowLoginModal(true)
+  }
+
+  const handleRegister = async (e) => {
+    e.preventDefault()
+    setIsRegistering(true)
+    setRegistrationError('')
+    try {
+      const response = await fetch('http://localhost:8003/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: regUsername,
+          email: regEmail,
+          password: regPassword,
+          department: regDepartment
+        })
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setNewApiKey(data.api_key)
+        // Auto-login with new account
+        setApiKey(data.api_key)
+        setUserEmail(data.email)
+        localStorage.setItem('apiKey', data.api_key)
+        localStorage.setItem('userEmail', data.email)
+        setShowLoginModal(false)
+        setIsRegistering(false)
+      } else {
+        const error = await response.json()
+        setRegistrationError(error.detail || 'Registration failed')
+      }
+    } catch (error) {
+      setRegistrationError('Failed to register. Make sure backend is running.')
+    } finally {
+      setIsRegistering(false)
+    }
   }
 
   useEffect(() => {
@@ -127,134 +172,22 @@ function App() {
     { id: 'stats', label: 'My Stats', icon: LineChart },
   ]
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
   if (showLoginModal) {
     return (
-      <div className={`h-screen flex items-center justify-center ${darkMode ? 'dark' : ''} bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 dark:from-blue-900 dark:via-purple-900 dark:to-slate-950 overflow-auto`}>
-        <div className="w-full max-w-md mx-4 my-8">
-          {/* Main Login Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 border border-gray-200 dark:border-gray-700">
-            {/* Logo */}
-            <div className="flex justify-center mb-6">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-3xl flex items-center justify-center shadow-xl transform hover:scale-110 transition-transform duration-300">
-                <Lock size={40} className="text-white" />
-              </div>
-            </div>
-
-            {/* Header */}
-            <h1 className="text-4xl font-black text-gray-900 dark:text-white text-center mb-2">AI Search Copilot</h1>
-            <p className="text-gray-600 dark:text-gray-400 text-center mb-8 font-medium">Sign in with your API key</p>
-
-            {/* Login Form */}
-            <form onSubmit={handleLogin} className="space-y-5">
-              {/* API Key Input */}
-              <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">API Key</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={tempApiKey}
-                    onChange={(e) => setTempApiKey(e.target.value)}
-                    placeholder="sk-demo-key-12345"
-                    className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                  >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Demo Key Info */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-600 p-4 rounded-lg">
-                <p className="text-xs font-bold text-blue-900 dark:text-blue-300 mb-2">💡 Demo API Key:</p>
-                <div className="flex items-center justify-between gap-2">
-                  <code className="text-sm text-blue-800 dark:text-blue-200 font-mono font-bold flex-1 break-all">
-                    sk-demo-key-12345
-                  </code>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTempApiKey('sk-demo-key-12345')
-                      copyToClipboard('sk-demo-key-12345')
-                    }}
-                    className="flex-shrink-0 p-2 hover:bg-blue-100 dark:hover:bg-blue-800/40 rounded-lg transition-colors"
-                  >
-                    <Copy size={18} className="text-blue-600 dark:text-blue-400" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Error Message */}
-              {loginError && (
-                <div className="p-4 bg-red-100 dark:bg-red-900/30 border-2 border-red-400 dark:border-red-600 rounded-xl text-red-700 dark:text-red-300 text-sm font-medium flex items-start gap-3">
-                  <AlertCircle size={20} className="flex-shrink-0 mt-0.5" />
-                  <span>{loginError}</span>
-                </div>
-              )}
-
-              {/* Sign In Button */}
-              <button
-                type="submit"
-                disabled={isLoggingIn || !tempApiKey}
-                className="w-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold py-3.5 px-4 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:scale-105"
-              >
-                {isLoggingIn ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <div className="w-5 h-5 border-2 border-white border-r-transparent rounded-full animate-spin"></div>
-                    Signing in...
-                  </span>
-                ) : (
-                  'Sign In'
-                )}
-              </button>
-            </form>
-
-            {/* API Info Section */}
-            <button
-              type="button"
-              onClick={() => setShowApiInfo(!showApiInfo)}
-              className="w-full mt-6 text-gray-600 dark:text-gray-400 text-sm font-medium py-2 hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              {showApiInfo ? '▼ Hide' : '▶ Show'} API Information
-            </button>
-
-            {showApiInfo && (
-              <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
-                <div>
-                  <p className="text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">🔑 Generate API Key</p>
-                  <button
-                    type="button"
-                    onClick={() => copyToClipboard('sk-' + Math.random().toString(36).slice(2, 15))}
-                    className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg font-medium transition-colors"
-                  >
-                    Generate New Key
-                  </button>
-                </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">
-                  <p className="font-bold mb-1">📚 Documentation:</p>
-                  <p>API keys are required for all authenticated requests. Keep them secure and never share them publicly.</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Footer Info */}
-          <div className="text-center mt-6 text-gray-200 text-xs">
-            <p>🔒 Your data is encrypted and secure</p>
-          </div>
-        </div>
-      </div>
+      <AuthModal
+        darkMode={darkMode}
+        onLogin={handleLogin}
+        onRegister={handleRegister}
+        loginError={loginError}
+        registrationError={registrationError}
+        isLoggingIn={isLoggingIn}
+        isRegistering={isRegistering}
+      />
     )
+  }
+
+  return (
+    <div className={`h-screen flex flex-col ${darkMode ? 'dark' : ''}`}>
   }
 
   return (
