@@ -82,15 +82,16 @@ class PostgresClient:
 
     # Document operations
     def add_document(self, filename: str, content_type: str, file_size: int,
-                     department: str = None, category: str = None) -> int:
+                     department: str = None, category: str = None,
+                     chunking_strategy: str = "semantic") -> int:
         """Add document to database. Returns document ID."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
 
             try:
                 cursor.execute(
-                    "INSERT INTO documents (filename, content_type, file_size, department, category) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-                    (filename, content_type, file_size, department, category)
+                    "INSERT INTO documents (filename, content_type, file_size, department, category, chunking_strategy) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+                    (filename, content_type, file_size, department, category, chunking_strategy)
                 )
                 doc_id = cursor.fetchone()[0]
                 conn.commit()
@@ -260,6 +261,58 @@ class PostgresClient:
             cursor.close()
 
             return [dict(row) for row in results]
+
+    # Document summary operations
+    def add_document_summary(self, document_id: int, summary: str,
+                            embedding: list, key_topics: str,
+                            chunk_count: int) -> int:
+        """Add document summary for hierarchical indexing."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            try:
+                cursor.execute(
+                    """INSERT INTO document_summaries
+                       (document_id, summary, embedding, key_topics, chunk_count)
+                       VALUES (%s, %s, %s, %s, %s)
+                       RETURNING id""",
+                    (document_id, summary, embedding, key_topics, chunk_count)
+                )
+                summary_id = cursor.fetchone()[0]
+                conn.commit()
+                logger.info(f"Added document summary for doc {document_id}")
+                return summary_id
+
+            except psycopg2.IntegrityError:
+                conn.rollback()
+                logger.warning(f"Summary already exists for doc {document_id}")
+                return None
+            finally:
+                cursor.close()
+
+    def search_documents_by_summary(self, query_embedding: list,
+                                   top_k: int = 10) -> List[Dict[str, Any]]:
+        """Search documents by their summaries (stage 1 of hierarchical search)."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+            try:
+                cursor.execute(
+                    """SELECT ds.id, ds.document_id, d.filename,
+                              ds.summary, ds.key_topics, ds.chunk_count,
+                              ds.embedding <-> %s::vector AS distance
+                       FROM document_summaries ds
+                       JOIN documents d ON ds.document_id = d.id
+                       ORDER BY distance ASC
+                       LIMIT %s""",
+                    (query_embedding, top_k)
+                )
+
+                results = cursor.fetchall()
+                return [dict(row) for row in results]
+
+            finally:
+                cursor.close()
 
 
 # Global instance

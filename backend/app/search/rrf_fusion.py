@@ -1,12 +1,42 @@
 from typing import List, Dict, Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 class RRFFusion:
     """Reciprocal Rank Fusion - combines vector and BM25 search results."""
 
     @staticmethod
+    def get_optimal_k(corpus_size: int) -> int:
+        """
+        Determine optimal k parameter based on corpus size.
+
+        Args:
+            corpus_size: Number of chunks in corpus
+
+        Returns:
+            Optimal k value
+
+        Reference (empirically tuned):
+        - <1,000 chunks: k=20 (top results matter more)
+        - 1,000-10,000: k=40 (balanced)
+        - 10,000-100,000: k=60 (current default)
+        - >100,000: k=100 (dilute top results)
+        """
+        if corpus_size < 1_000:
+            return 20
+        elif corpus_size < 10_000:
+            return 40
+        elif corpus_size < 100_000:
+            return 60
+        else:
+            return 100
+
+    @staticmethod
     def fuse(vector_results: List[Dict[str, Any]],
              bm25_results: List[Dict[str, Any]],
-             k: int = 60) -> List[Dict[str, Any]]:
+             k: int = None,
+             corpus_size: int = None) -> List[Dict[str, Any]]:
         """Fuse vector search and BM25 results using RRF.
 
         Formula: score = 1/(k + rank_vector) + 1/(k + rank_bm25)
@@ -14,11 +44,19 @@ class RRFFusion:
         Args:
             vector_results: Results from vector search (with 'rank', 'score', 'text')
             bm25_results: Results from BM25 search (with 'rank', 'score', 'text')
-            k: RRF parameter (default 60, controls weight of top results)
+            k: RRF parameter (if None, auto-detect from corpus_size)
+            corpus_size: Size of corpus for k auto-detection
 
         Returns:
             Fused results sorted by combined RRF score
         """
+        # Auto-detect k if not provided
+        if k is None:
+            if corpus_size is None:
+                k = 60  # Default fallback
+            else:
+                k = RRFFusion.get_optimal_k(corpus_size)
+                logger.debug(f"Auto-detected RRF k={k} for corpus_size={corpus_size}")
         # Map text to RRF components
         rrf_scores = {}
 

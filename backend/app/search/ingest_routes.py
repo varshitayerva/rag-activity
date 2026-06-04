@@ -8,6 +8,8 @@ from typing import Optional
 from backend.app.database.postgres import db_client
 from backend.app.search.hybrid_search import HybridSearchService
 from backend.app.search.embeddings import EmbeddingsClient
+from backend.app.search.semantic_chunker import HybridChunker
+from backend.app.search.summary_generator import DocumentSummaryGenerator
 from backend.app.validation import validate_file_upload, sanitize_filename
 from backend.app.auth import require_auth, require_demo_mode
 
@@ -22,6 +24,7 @@ async def ingest_document(
     file: UploadFile = File(...),
     department: str = Form(default="General"),
     category: str = Form(default="General"),
+    chunking_strategy: str = Form(default="semantic"),
     api_key: str = Depends(require_auth)
 ):
     """Ingest a document and add to vector store."""
@@ -69,43 +72,33 @@ async def ingest_document(
         # Sanitize filename
         safe_filename = sanitize_filename(file.filename)
 
-        # Add document to database
+        # Validate chunking strategy
+        if chunking_strategy not in ["semantic", "fixed"]:
+            chunking_strategy = "semantic"
+
+        # Create chunks using semantic or fixed-size strategy
+        hybrid_chunker = HybridChunker(chunk_size=500, overlap=100)
+        chunk_list = hybrid_chunker.chunk(
+            text=text_content,
+            strategy=chunking_strategy,
+            metadata={
+                'page_number': 1,
+                'section': None
+            }
+        )
+
+        if not chunk_list:
+            raise HTTPException(status_code=400, detail="Failed to chunk document")
+
+        # Add document to database with chunking strategy
         doc_id = db_client.add_document(
             filename=safe_filename,
             content_type=file_ext,
             file_size=file_size,
             department=department,
-            category=category
+            category=category,
+            chunking_strategy=chunking_strategy
         )
-
-        # Create chunks using simple fixed-size chunking
-        chunk_size = 500
-        overlap = 100
-        chunks = []
-
-        sentences = text_content.split('.')
-        current_chunk = ""
-
-        for sentence in sentences:
-            if len(current_chunk) + len(sentence) > chunk_size:
-                if current_chunk:
-                    chunks.append(current_chunk.strip())
-                current_chunk = sentence
-            else:
-                current_chunk += sentence + "."
-
-        if current_chunk:
-            chunks.append(current_chunk.strip())
-
-        chunk_list = []
-        for i, chunk in enumerate(chunks):
-            chunk_dict = {
-                'chunk_index': i,
-                'text': chunk,
-                'section': None,
-                'page_number': None
-            }
-            chunk_list.append(chunk_dict)
 
         db_client.add_chunks(doc_id, chunk_list)
 
@@ -128,6 +121,38 @@ async def ingest_document(
         except Exception as e:
             logger.error(f"Failed to index chunks in hybrid search: {e}")
             raise HTTPException(status_code=500, detail=f"Indexing failed: {str(e)}")
+
+        # Generate document summary for hierarchical indexing (optional)
+        try:
+            summary_gen = DocumentSummaryGenerator()
+
+            # Use first 3 chunks to generate summary
+            preview_text = "\n\n".join([c['text'] for c in chunk_list[:3]])
+            summary = summary_gen.generate_summary(preview_text)
+
+            if summary:
+                try:
+                    # Embed the summary
+                    embeddings_client = EmbeddingsClient()
+                    summary_embedding = embeddings_client.embed_query(summary)
+
+                    # Extract key topics
+                    key_topics = summary_gen.extract_key_topics(text_content)
+
+                    # Store in database
+                    db_client.add_document_summary(
+                        document_id=doc_id,
+                        summary=summary,
+                        embedding=summary_embedding,
+                        key_topics=key_topics,
+                        chunk_count=len(chunk_list)
+                    )
+                    logger.info(f"Added summary for document {doc_id}")
+                except Exception as embed_err:
+                    logger.warning(f"Failed to add summary to database: {embed_err}")
+
+        except Exception as e:
+            logger.warning(f"Skipping summary generation: {e}")
 
         logger.info(f"Document ingested: {safe_filename} ({len(chunk_list)} chunks)")
 

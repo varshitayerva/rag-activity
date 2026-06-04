@@ -32,7 +32,11 @@ class HybridSearchService:
         self.embeddings = EmbeddingsClient(api_key=openai_api_key)
         self.bm25 = BM25SearchEngine()
         self.rrf = RRFFusion()
-        self._initialize_bm25_index()
+
+        # Try to load persisted BM25 index
+        if not self.bm25.load_index():
+            logger.info("No persisted BM25 index found, initializing from PostgreSQL...")
+            self._initialize_bm25_index()
 
     def _initialize_bm25_index(self):
         """Load existing chunks from PostgreSQL into BM25 index."""
@@ -95,14 +99,15 @@ class HybridSearchService:
         bm25_results = self.bm25.search(query, top_k=50)
         latency['bm25_search_ms'] = int((time.time() - bm25_start) * 1000)
 
-        # Stage 4: RRF fusion
+        # Stage 4: RRF fusion with adaptive k
         fusion_start = time.time()
-        fused_results = self.rrf.fuse(vector_results, bm25_results, k=60)
+        corpus_size = self.vector_db.get_count()
+        fused_results = self.rrf.fuse(vector_results, bm25_results, corpus_size=corpus_size)
         latency['rrf_fusion_ms'] = int((time.time() - fusion_start) * 1000)
 
         # Stage 5: Apply metadata filter
         filter_start = time.time()
-        if metadata_filter:
+        if metadata_filter and 'document_ids' not in metadata_filter:
             # Note: Need to map fused results back to full payload for filtering
             filtered_results = self.rrf.apply_metadata_filter(fused_results, metadata_filter)
         else:
@@ -111,6 +116,18 @@ class HybridSearchService:
 
         # Truncate to top_k
         final_results = filtered_results[:top_k]
+
+        # Return empty if no results found
+        if not final_results:
+            logger.warning(f"No results found for query: {query}")
+            return {
+                'query': query,
+                'chunks': [],
+                'search_type': 'hybrid',
+                'num_results': 0,
+                'latency_ms': latency,
+                'error': 'No relevant documents found. Please refine your search query.'
+            }
 
         latency['total_ms'] = int((time.time() - start_time) * 1000)
 
@@ -124,9 +141,14 @@ class HybridSearchService:
 
     def get_index_stats(self) -> Dict[str, Any]:
         """Get statistics about indexed data."""
+        corpus_size = self.vector_db.get_count()
+        optimal_k = self.rrf.get_optimal_k(corpus_size)
+
         return {
-            'postgres_vectors': self.vector_db.get_count(),
+            'postgres_vectors': corpus_size,
             'bm25_documents': self.bm25.get_corpus_size(),
             'vector_dimension': self.vector_db.vector_size,
             'embedding_model': self.embeddings.model,
+            'rrf_k': optimal_k,
+            'corpus_size_category': 'small' if corpus_size < 1_000 else 'medium' if corpus_size < 10_000 else 'large',
         }
