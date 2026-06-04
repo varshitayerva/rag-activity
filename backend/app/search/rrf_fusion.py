@@ -132,6 +132,8 @@ class RRFFusion:
                 'page': result.get('page', 0),
                 'department': result.get('department', ''),
                 'category': result.get('category', ''),
+                'vector_score': result.get('vector_score', 0),  # Original vector similarity (0-1)
+                'bm25_score': result.get('bm25_score', 0),  # Original BM25 score
             })
 
         return final_results
