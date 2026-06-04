@@ -237,7 +237,9 @@
       "Bash(curl -s -X POST \"http://127.0.0.1:8003/api/search?query=restart&top_k=3\")",
       "Bash(curl -s -X POST http://127.0.0.1:8003/api/ingest -F file=@/tmp/test_doc2.txt -F department=DevOps -F category=Setup -H 'X-API-Key: sk-demo-key-12345')",
       "Bash(curl -s -X POST \"http://127.0.0.1:8003/api/search?query=docker+container&top_k=3\")",
-      "Bash(curl -s http://localhost:5173/)"
+      "Bash(curl -s http://localhost:5173/)",
+      "Bash(curl -s -X POST \"http://127.0.0.1:8003/api/search?query=platform&top_k=3\")",
+      "Bash(curl -s http://localhost:3000/)"
     ],
     "additionalDirectories": [
       "c:\\Users\\j.sebastian\\Desktop\\FDE RAG\\backend\\qdrant_storage"
