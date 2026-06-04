@@ -46,7 +46,7 @@ function App() {
     setIsLoggingIn(true)
     setLoginError('')
     try {
-      const response = await fetch('http://localhost:8003/api/user/profile', {
+      const response = await fetch('http://localhost:8007/api/user/profile', {
         headers: { 'X-API-Key': tempApiKey }
       })
       if (response.ok) {
@@ -80,7 +80,7 @@ function App() {
     setIsRegistering(true)
     setRegistrationError('')
     try {
-      const response = await fetch('http://localhost:8003/api/auth/register', {
+      const response = await fetch('http://localhost:8007/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -129,12 +129,12 @@ function App() {
   useEffect(() => {
     const fetchChunks = async () => {
       try {
-        const response = await fetch('http://localhost:8003/api/documents')
+        const response = await fetch('http://localhost:8007/api/documents')
         if (response.ok) {
           const data = await response.json()
           let totalChunks = 0
           for (const doc of data.documents) {
-            const chunksRes = await fetch(`http://localhost:8003/api/documents/${doc.id}/chunks`)
+            const chunksRes = await fetch(`http://localhost:8007/api/documents/${doc.id}/chunks`)
             if (chunksRes.ok) {
               const chunksData = await chunksRes.json()
               totalChunks += chunksData.count

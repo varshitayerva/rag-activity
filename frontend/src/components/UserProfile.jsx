@@ -14,10 +14,10 @@ export function UserProfile({ apiKey = 'sk-demo-key-12345' }) {
     const fetchProfile = async () => {
       try {
         const [profileRes, statsRes] = await Promise.all([
-          fetch('http://localhost:8003/api/user/profile', {
+          fetch('http://localhost:8007/api/user/profile', {
             headers: { 'X-API-Key': apiKey }
           }).then(r => r.json()),
-          fetch('http://localhost:8003/api/user/stats', {
+          fetch('http://localhost:8007/api/user/stats', {
             headers: { 'X-API-Key': apiKey }
           }).then(r => r.json())
         ])
@@ -42,7 +42,7 @@ export function UserProfile({ apiKey = 'sk-demo-key-12345' }) {
   const handleSave = async () => {
     setSaving(true)
     try {
-      const response = await fetch('http://localhost:8003/api/user/profile', {
+      const response = await fetch('http://localhost:8007/api/user/profile', {
         method: 'PUT',
         headers: {
           'X-API-Key': apiKey,
