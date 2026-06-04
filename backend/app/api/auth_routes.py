@@ -2,7 +2,7 @@
 
 import logging
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from backend.app.database.postgres import db_client
 from backend.app.auth import generate_api_key, verify_api_key
 import hashlib
@@ -52,36 +52,35 @@ async def register_user(request: RegisterRequest):
         password_hash = hashlib.sha256(request.password.encode()).hexdigest()
 
         # Insert into database
-        cursor = db_client.connection.cursor()
+        with db_client.get_connection() as conn:
+            cursor = conn.cursor()
 
-        try:
-            cursor.execute("""
-                INSERT INTO users (username, email, password_hash, api_key, department)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING id, username, email, department
-            """, (request.username, request.email, password_hash, api_key, request.department))
+            try:
+                cursor.execute("""
+                    INSERT INTO users (username, email, password_hash, api_key, department)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING id, username, email, department
+                """, (request.username, request.email, password_hash, api_key, request.department))
 
-            result = cursor.fetchone()
-            db_client.connection.commit()
+                result = cursor.fetchone()
 
-            if result:
-                logger.info(f"User registered: {request.username}")
-                return RegisterResponse(
-                    username=result[1],
-                    email=result[2],
-                    api_key=api_key,
-                    department=result[3],
-                    message="User registered successfully"
-                )
-            else:
-                raise HTTPException(status_code=400, detail="Failed to create user")
+                if result:
+                    logger.info(f"User registered: {request.username}")
+                    return RegisterResponse(
+                        username=result[1],
+                        email=result[2],
+                        api_key=api_key,
+                        department=result[3],
+                        message="User registered successfully"
+                    )
+                else:
+                    raise HTTPException(status_code=400, detail="Failed to create user")
 
-        except Exception as e:
-            db_client.connection.rollback()
-            if "unique constraint" in str(e).lower():
-                raise HTTPException(status_code=409, detail="Username or email already exists")
-            logger.error(f"Registration error: {str(e)}")
-            raise HTTPException(status_code=400, detail=str(e))
+            except Exception as e:
+                if "unique constraint" in str(e).lower():
+                    raise HTTPException(status_code=409, detail="Username or email already exists")
+                logger.error(f"Registration error: {str(e)}")
+                raise HTTPException(status_code=400, detail=str(e))
 
     except HTTPException:
         raise
@@ -95,34 +94,34 @@ async def login_user(request: LoginRequest):
     """Login with API key."""
     try:
         # Verify API key exists
-        cursor = db_client.connection.cursor()
-        cursor.execute("""
-            SELECT id, username, email, department, role
-            FROM users
-            WHERE api_key = %s AND is_active = true
-        """, (request.api_key,))
+        with db_client.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, username, email, department, role
+                FROM users
+                WHERE api_key = %s AND is_active = true
+            """, (request.api_key,))
 
-        result = cursor.fetchone()
+            result = cursor.fetchone()
 
-        if not result:
-            raise HTTPException(status_code=401, detail="Invalid API key")
+            if not result:
+                raise HTTPException(status_code=401, detail="Invalid API key")
 
-        # Update last login
-        cursor.execute("""
-            UPDATE users
-            SET last_login = CURRENT_TIMESTAMP
-            WHERE api_key = %s
-        """, (request.api_key,))
-        db_client.connection.commit()
+            # Update last login
+            cursor.execute("""
+                UPDATE users
+                SET last_login = CURRENT_TIMESTAMP
+                WHERE api_key = %s
+            """, (request.api_key,))
 
-        return {
-            "user_id": result[0],
-            "username": result[1],
-            "email": result[2],
-            "department": result[3],
-            "role": result[4],
-            "message": "Login successful"
-        }
+            return {
+                "user_id": result[0],
+                "username": result[1],
+                "email": result[2],
+                "department": result[3],
+                "role": result[4],
+                "message": "Login successful"
+            }
 
     except HTTPException:
         raise
@@ -137,29 +136,30 @@ async def get_profile(request: Request):
     try:
         api_key = verify_api_key(request)
 
-        cursor = db_client.connection.cursor()
-        cursor.execute("""
-            SELECT id, username, email, department, role, created_at, last_login
-            FROM users
-            WHERE api_key = %s AND is_active = true
-        """, (api_key,))
+        with db_client.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, username, email, department, role, created_at, last_login
+                FROM users
+                WHERE api_key = %s AND is_active = true
+            """, (api_key,))
 
-        result = cursor.fetchone()
+            result = cursor.fetchone()
 
-        if not result:
-            raise HTTPException(status_code=404, detail="User not found")
+            if not result:
+                raise HTTPException(status_code=404, detail="User not found")
 
-        return {
-            "user": {
-                "id": result[0],
-                "username": result[1],
-                "email": result[2],
-                "department": result[3],
-                "role": result[4],
-                "created_at": result[5],
-                "last_login": result[6]
+            return {
+                "user": {
+                    "id": result[0],
+                    "username": result[1],
+                    "email": result[2],
+                    "department": result[3],
+                    "role": result[4],
+                    "created_at": result[5],
+                    "last_login": result[6]
+                }
             }
-        }
 
     except HTTPException:
         raise
@@ -192,40 +192,39 @@ async def update_profile(request: Request):
         set_clause = ", ".join([f"{key} = %s" for key in updates.keys()])
         values = list(updates.values()) + [api_key]
 
-        cursor = db_client.connection.cursor()
+        with db_client.get_connection() as conn:
+            cursor = conn.cursor()
 
-        try:
-            cursor.execute(f"""
-                UPDATE users
-                SET {set_clause}, updated_at = CURRENT_TIMESTAMP
-                WHERE api_key = %s AND is_active = true
-                RETURNING id, username, email, department, role, created_at
-            """, values)
+            try:
+                cursor.execute(f"""
+                    UPDATE users
+                    SET {set_clause}, updated_at = CURRENT_TIMESTAMP
+                    WHERE api_key = %s AND is_active = true
+                    RETURNING id, username, email, department, role, created_at
+                """, values)
 
-            result = cursor.fetchone()
-            db_client.connection.commit()
+                result = cursor.fetchone()
 
-            if not result:
-                raise HTTPException(status_code=404, detail="User not found")
+                if not result:
+                    raise HTTPException(status_code=404, detail="User not found")
 
-            logger.info(f"User profile updated: {result[1]}")
-            return {
-                "user": {
-                    "id": result[0],
-                    "username": result[1],
-                    "email": result[2],
-                    "department": result[3],
-                    "role": result[4],
-                    "created_at": result[5]
-                },
-                "message": "Profile updated successfully"
-            }
+                logger.info(f"User profile updated: {result[1]}")
+                return {
+                    "user": {
+                        "id": result[0],
+                        "username": result[1],
+                        "email": result[2],
+                        "department": result[3],
+                        "role": result[4],
+                        "created_at": result[5]
+                    },
+                    "message": "Profile updated successfully"
+                }
 
-        except Exception as e:
-            db_client.connection.rollback()
-            if "unique constraint" in str(e).lower():
-                raise HTTPException(status_code=409, detail="Email already in use")
-            raise
+            except Exception as e:
+                if "unique constraint" in str(e).lower():
+                    raise HTTPException(status_code=409, detail="Email already in use")
+                raise
 
     except HTTPException:
         raise
