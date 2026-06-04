@@ -188,10 +188,6 @@ function App() {
 
   return (
     <div className={`h-screen flex flex-col ${darkMode ? 'dark' : ''}`}>
-  }
-
-  return (
-    <div className={`h-screen flex flex-col ${darkMode ? 'dark' : ''}`}>
       {/* Header */}
       <header className="bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 dark:from-blue-900 dark:via-purple-900 dark:to-slate-950 text-white p-6 shadow-2xl border-b border-blue-500/30 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
