@@ -16,6 +16,9 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
     setMessages(prev => [...prev, { role: 'user', content: userQuery }])
     setLoading(true)
 
+    // Clear sources when starting new search
+    onSourcesUpdate?.([], {})
+
     try {
       // Generate answer with sources using Groq
       const generatedResult = await apiClient.generate(userQuery, 10, filters)
