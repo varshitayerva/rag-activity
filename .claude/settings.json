@@ -261,10 +261,24 @@
       "Bash(curl -s -X POST http://localhost:8006/api/auth/register -H 'Content-Type: application/json' -d '{\"username\":\"johndoe\",\"email\":\"john@example.com\",\"password\":\"John123456\",\"department\":\"Engineering\"}')",
       "Bash(python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8007)",
       "Bash(curl -s -X POST http://localhost:8007/api/auth/register -H 'Content-Type: application/json' -d '{\"username\":\"johndoe\",\"email\":\"john@example.com\",\"password\":\"John123456\",\"department\":\"Engineering\"}')",
-      "Bash(curl -s http://localhost:3000)"
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(curl -s http://localhost:8007/health)",
+      "Bash(taskkill /F /IM node.exe /T)",
+      "Bash(python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8007 > /tmp/backend.log 2>&1 &)",
+      "Bash(curl -s http://localhost:8007/api/documents)",
+      "Bash(curl -X POST http://localhost:8007/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"Rohan\",\"password\":\"Pass@123\"}')",
+      "Bash(pkill -9 -f python)",
+      "Bash(curl -s -X POST http://localhost:8007/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"Rohan\",\"password\":\"Pass@123\"}')",
+      "Bash(python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8007 --reload)",
+      "Bash(taskkill /PID 23536 /F)",
+      "Bash(curl -s -X GET http://localhost:8007/api/auth/profile -H 'X-API-Key: sk-6yPue0UxJamcskzLn6Eaqn-abI4stmuS')",
+      "Bash(curl -s -X POST http://localhost:8007/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"Ram\",\"password\":\"Pass@123\"}')",
+      "Bash(curl -s -X GET http://localhost:8007/api/auth/profile -H 'X-API-Key: sk-22hzyUkD7pOvVl9VIK6M6OXQPGfyinwq')",
+      "Bash(curl -s -X GET http://localhost:8007/api/user/stats -H 'X-API-Key: sk-22hzyUkD7pOvVl9VIK6M6OXQPGfyinwq')"
     ],
     "additionalDirectories": [
-      "c:\\Users\\j.sebastian\\Desktop\\FDE RAG\\backend\\qdrant_storage"
+      "c:\\Users\\j.sebastian\\Desktop\\FDE RAG\\backend\\qdrant_storage",
+      "\\tmp"
     ]
   }
 }
