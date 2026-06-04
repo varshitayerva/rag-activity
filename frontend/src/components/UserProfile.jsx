@@ -13,17 +13,46 @@ export function UserProfile({ apiKey }) {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const [profileRes, statsRes] = await Promise.all([
-          fetch('http://localhost:8007/api/user/profile', {
+        // Fetch profile
+        const profileRes = await fetch('http://localhost:8007/api/user/profile', {
+          headers: { 'X-API-Key': apiKey }
+        })
+        if (profileRes.ok) {
+          const profileData = await profileRes.json()
+          setProfile(profileData.user)
+          setEditData(profileData.user || {})
+        }
+
+        // Fetch stats (optional - don't fail if it doesn't exist)
+        try {
+          const statsRes = await fetch('http://localhost:8007/api/user/stats', {
             headers: { 'X-API-Key': apiKey }
-          }).then(r => r.json()),
-          fetch('http://localhost:8007/api/user/stats', {
-            headers: { 'X-API-Key': apiKey }
-          }).then(r => r.json())
-        ])
-        setProfile(profileRes.user)
-        setStats(statsRes.stats)
-        setEditData(profileRes.user || {})
+          })
+          if (statsRes.ok) {
+            const statsData = await statsRes.json()
+            setStats(statsData.stats || {
+              search_count: 0,
+              generation_count: 0,
+              total_queries: 0,
+              last_login: null
+            })
+          } else {
+            setStats({
+              search_count: 0,
+              generation_count: 0,
+              total_queries: 0,
+              last_login: null
+            })
+          }
+        } catch (error) {
+          console.warn('Stats endpoint not available:', error)
+          setStats({
+            search_count: 0,
+            generation_count: 0,
+            total_queries: 0,
+            last_login: null
+          })
+        }
       } catch (error) {
         console.error('Failed to fetch profile:', error)
       } finally {
@@ -31,7 +60,9 @@ export function UserProfile({ apiKey }) {
       }
     }
 
-    fetchProfile()
+    if (apiKey) {
+      fetchProfile()
+    }
   }, [apiKey])
 
   const handleEdit = () => {
