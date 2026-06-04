@@ -53,3 +53,7 @@ logs/
 
 # Temporary
 *.tmp
+
+# RAG Pipeline Data
+backend/data/bm25_indexes/
+backend/data/embeddings_cache/

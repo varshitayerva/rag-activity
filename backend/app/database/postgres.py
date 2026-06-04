@@ -82,15 +82,16 @@ class PostgresClient:
 
     # Document operations
     def add_document(self, filename: str, content_type: str, file_size: int,
-                     department: str = None, category: str = None) -> int:
+                     department: str = None, category: str = None,
+                     chunking_strategy: str = "semantic") -> int:
         """Add document to database. Returns document ID."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
 
             try:
                 cursor.execute(
-                    "INSERT INTO documents (filename, content_type, file_size, department, category) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-                    (filename, content_type, file_size, department, category)
+                    "INSERT INTO documents (filename, content_type, file_size, department, category, chunking_strategy) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+                    (filename, content_type, file_size, department, category, chunking_strategy)
                 )
                 doc_id = cursor.fetchone()[0]
                 conn.commit()
@@ -260,6 +261,147 @@ class PostgresClient:
             cursor.close()
 
             return [dict(row) for row in results]
+
+    # Document summary operations
+    def add_document_summary(self, document_id: int, summary: str,
+                            embedding: list, key_topics: str,
+                            chunk_count: int) -> int:
+        """Add document summary for hierarchical indexing."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            try:
+                cursor.execute(
+                    """INSERT INTO document_summaries
+                       (document_id, summary, embedding, key_topics, chunk_count)
+                       VALUES (%s, %s, %s, %s, %s)
+                       RETURNING id""",
+                    (document_id, summary, embedding, key_topics, chunk_count)
+                )
+                summary_id = cursor.fetchone()[0]
+                conn.commit()
+                logger.info(f"Added document summary for doc {document_id}")
+                return summary_id
+
+            except psycopg2.IntegrityError:
+                conn.rollback()
+                logger.warning(f"Summary already exists for doc {document_id}")
+                return None
+            finally:
+                cursor.close()
+
+    def search_documents_by_summary(self, query_embedding: list,
+                                   top_k: int = 10) -> List[Dict[str, Any]]:
+        """Search documents by their summaries (stage 1 of hierarchical search)."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+            try:
+                cursor.execute(
+                    """SELECT ds.id, ds.document_id, d.filename,
+                              ds.summary, ds.key_topics, ds.chunk_count,
+                              ds.embedding <-> %s::vector AS distance
+                       FROM document_summaries ds
+                       JOIN documents d ON ds.document_id = d.id
+                       ORDER BY distance ASC
+                       LIMIT %s""",
+                    (query_embedding, top_k)
+                )
+
+                results = cursor.fetchall()
+                return [dict(row) for row in results]
+
+            finally:
+                cursor.close()
+
+    # User feedback operations
+    def add_feedback(self, query: str, answer: str = None, confidence_score: float = None,
+                    rating: int = None, feedback_text: str = None, chunks_used: str = None) -> int:
+        """Add user feedback for a query/answer pair."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            try:
+                cursor.execute(
+                    """INSERT INTO query_feedback
+                       (query, answer, confidence_score, rating, feedback_text, chunks_used)
+                       VALUES (%s, %s, %s, %s, %s, %s)
+                       RETURNING id""",
+                    (query, answer, confidence_score, rating, feedback_text, chunks_used)
+                )
+                feedback_id = cursor.fetchone()[0]
+                conn.commit()
+                logger.info(f"Recorded feedback: query={query[:50]}, rating={rating}")
+                return feedback_id
+
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Failed to record feedback: {e}")
+                return None
+            finally:
+                cursor.close()
+
+    def get_feedback_analytics(self, days: int = 30) -> Dict[str, Any]:
+        """Get feedback analytics for last N days."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+            try:
+                # Get summary stats
+                cursor.execute(
+                    """SELECT
+                        COUNT(*) as total_feedback,
+                        SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) as thumbs_up,
+                        SUM(CASE WHEN rating = -1 THEN 1 ELSE 0 END) as thumbs_down,
+                        SUM(CASE WHEN rating = 0 THEN 1 ELSE 0 END) as neutral,
+                        AVG(confidence_score) as avg_confidence
+                       FROM query_feedback
+                       WHERE created_at >= NOW() - INTERVAL '%s days'""",
+                    (days,)
+                )
+                stats = dict(cursor.fetchone())
+
+                # Get low-rated queries
+                cursor.execute(
+                    """SELECT query, COUNT(*) as count, AVG(confidence_score) as avg_confidence
+                       FROM query_feedback
+                       WHERE rating = -1 AND created_at >= NOW() - INTERVAL '%s days'
+                       GROUP BY query
+                       ORDER BY count DESC
+                       LIMIT 10""",
+                    (days,)
+                )
+                low_rated = [dict(row) for row in cursor.fetchall()]
+
+                return {
+                    'stats': stats,
+                    'low_rated_queries': low_rated,
+                    'period_days': days
+                }
+
+            finally:
+                cursor.close()
+
+    def get_low_confidence_queries(self, threshold: float = 0.4, limit: int = 20) -> List[Dict[str, Any]]:
+        """Get queries with confidence below threshold for manual review."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+            try:
+                cursor.execute(
+                    """SELECT query, COUNT(*) as occurrences, AVG(confidence_score) as avg_confidence
+                       FROM query_feedback
+                       WHERE confidence_score < %s
+                       GROUP BY query
+                       ORDER BY occurrences DESC, avg_confidence ASC
+                       LIMIT %s""",
+                    (threshold, limit)
+                )
+
+                return [dict(row) for row in cursor.fetchall()]
+
+            finally:
+                cursor.close()
 
 
 # Global instance

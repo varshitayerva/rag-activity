@@ -16,19 +16,32 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
     setMessages(prev => [...prev, { role: 'user', content: userQuery }])
     setLoading(true)
 
+    // Clear sources when starting new search
+    onSourcesUpdate?.([], {})
+
     try {
       // Generate answer with sources using Groq
       const generatedResult = await apiClient.generate(userQuery, 10, filters)
       const chunks = generatedResult.sources || []
       const answer = generatedResult.answer || 'No answer generated'
+      const confidenceScore = generatedResult.confidence_score || 0.5
 
-      // Notify parent of retrieved sources
-      onSourcesUpdate?.(chunks)
+      // Notify parent of retrieved sources with confidence
+      onSourcesUpdate?.(chunks, {
+        query: userQuery,
+        answer: answer,
+        confidence_score: confidenceScore
+      })
 
-      // Display the LLM-generated answer
+      // Display the LLM-generated answer with confidence badge
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: answer, sources: chunks }
+        {
+          role: 'assistant',
+          content: answer,
+          sources: chunks,
+          confidence_score: confidenceScore
+        }
       ])
     } catch (error) {
       console.error('Error:', error)
@@ -56,7 +69,7 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-7 space-y-5">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.length === 0 && (
           <div className="h-full flex items-center justify-center">
             <div className="text-center max-w-sm">
@@ -103,10 +116,10 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
         {messages.map((msg, idx) => (
           <div
             key={idx}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in gap-3`}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in gap-3 w-full`}
           >
             <div
-              className={`max-w-xl px-5 py-4 rounded-2xl font-medium ${
+              className={`max-w-lg px-4 py-3 rounded-xl font-medium ${
                 msg.role === 'user'
                   ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-br-none shadow-xl hover:shadow-2xl transition-shadow'
                   : msg.error
@@ -121,6 +134,34 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
                 </div>
               )}
               <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+
+              {/* Confidence Score Badge */}
+              {msg.confidence_score !== undefined && !msg.error && msg.role === 'assistant' && (
+                <div className="mt-3 pt-3 border-t border-gray-300 dark:border-gray-600">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-600 dark:text-gray-400">Confidence:</span>
+                    <div className="inline-flex items-center gap-1 bg-white dark:bg-gray-600 px-2 py-1 rounded-full text-xs font-semibold">
+                      {msg.confidence_score >= 0.7 ? (
+                        <>
+                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                          <span className="text-green-700 dark:text-green-300">High ({Math.round(msg.confidence_score * 100)}%)</span>
+                        </>
+                      ) : msg.confidence_score >= 0.4 ? (
+                        <>
+                          <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                          <span className="text-yellow-700 dark:text-yellow-300">Medium ({Math.round(msg.confidence_score * 100)}%)</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                          <span className="text-red-700 dark:text-red-300">Low ({Math.round(msg.confidence_score * 100)}%)</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {msg.tokens && (
                 <p className="text-xs mt-3 opacity-75 pt-2 border-t border-white/20">🪙 {msg.tokens} tokens</p>
               )}
@@ -130,7 +171,7 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
 
         {loading && (
           <div className="flex justify-start animate-fade-in gap-3">
-            <div className="bg-gradient-to-r from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-800/20 px-6 py-4 rounded-2xl rounded-bl-none border-2 border-blue-300 dark:border-blue-700/50 shadow-md">
+            <div className="bg-gradient-to-r from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-800/20 px-4 py-3 rounded-xl rounded-bl-none border-2 border-blue-300 dark:border-blue-700/50 shadow-md">
               <div className="flex gap-3 items-center">
                 <div className="flex gap-2">
                   <div className="w-3 h-3 bg-gradient-to-r from-blue-600 to-blue-700 rounded-full animate-bounce"></div>
@@ -145,20 +186,20 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="p-6 border-t-2 border-blue-200 dark:border-blue-800 bg-gradient-to-r from-white to-blue-50 dark:from-gray-800 dark:to-gray-900">
-        <div className="flex gap-3 items-center">
+      <form onSubmit={handleSubmit} className="p-4 border-t-2 border-blue-200 dark:border-blue-800 bg-gradient-to-r from-white to-blue-50 dark:from-gray-800 dark:to-gray-900">
+        <div className="flex gap-2 items-center">
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="🔍 Ask anything about your documents..."
             disabled={loading}
-            className="flex-1 px-5 py-3 rounded-full bg-white dark:bg-gray-700/50 border-2 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 disabled:opacity-60 transition-all duration-300"
+            className="flex-1 px-4 py-2.5 rounded-full bg-white dark:bg-gray-700/50 border-2 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 disabled:opacity-60 transition-all duration-300 text-sm"
           />
           <button
             type="submit"
             disabled={loading || !query.trim()}
-            className="px-7 py-3 rounded-full bg-gradient-to-r from-blue-600 via-blue-700 to-purple-700 hover:from-blue-700 hover:via-blue-800 hover:to-purple-800 text-white font-bold hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center gap-2 shadow-xl transform hover:scale-105"
+            className="px-5 py-2.5 rounded-full bg-gradient-to-r from-blue-600 via-blue-700 to-purple-700 hover:from-blue-700 hover:via-blue-800 hover:to-purple-800 text-white font-bold hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl"
           >
             <Send size={20} />
             <span className="hidden sm:inline">Search</span>

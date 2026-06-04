@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.search.routes import router as search_router
 from backend.app.search.ingest_routes import router as ingest_router
+from backend.app.search.feedback_routes import router as feedback_router
 from backend.app.api.metrics import router as metrics_router
 from backend.app.api.features_routes import router as features_router
 from backend.app.api.auth_routes import router as auth_router
@@ -48,6 +49,7 @@ app.add_middleware(
 # Include routers
 app.include_router(search_router)
 app.include_router(ingest_router)
+app.include_router(feedback_router)
 app.include_router(metrics_router)
 app.include_router(auth_router)
 app.include_router(features_router)

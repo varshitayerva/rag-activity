@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS documents (
     file_size INTEGER,
     department VARCHAR(100),
     category VARCHAR(100),
+    chunking_strategy VARCHAR(20) DEFAULT 'semantic' CHECK (chunking_strategy IN ('semantic', 'fixed')),
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -80,3 +81,50 @@ CREATE INDEX IF NOT EXISTS idx_search_queries_timestamp ON search_queries(timest
 CREATE INDEX IF NOT EXISTS idx_chunks_embedding_hnsw ON chunks
     USING hnsw (embedding vector_cosine_ops)
     WITH (m = 16, ef_construction = 64);
+
+-- Chunk metadata table for tracking chunking strategy and other attributes
+CREATE TABLE IF NOT EXISTS chunk_metadata (
+    id SERIAL PRIMARY KEY,
+    chunk_id INTEGER NOT NULL REFERENCES chunks(id) ON DELETE CASCADE,
+    document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    chunking_strategy VARCHAR(20),
+    sentence_count INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_chunk_metadata_chunk_id ON chunk_metadata(chunk_id);
+CREATE INDEX IF NOT EXISTS idx_chunk_metadata_strategy ON chunk_metadata(chunking_strategy);
+
+-- Document summaries table for hierarchical indexing
+CREATE TABLE IF NOT EXISTS document_summaries (
+    id SERIAL PRIMARY KEY,
+    document_id INTEGER NOT NULL UNIQUE REFERENCES documents(id) ON DELETE CASCADE,
+    summary TEXT NOT NULL,
+    embedding vector(1536),
+    chunk_count INTEGER,
+    key_topics VARCHAR(500),
+    generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_document_summaries_doc_id ON document_summaries(document_id);
+CREATE INDEX IF NOT EXISTS idx_document_summaries_embedding_hnsw ON document_summaries
+    USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 8, ef_construction = 32);
+
+-- User feedback table for confidence and answer quality tracking
+CREATE TABLE IF NOT EXISTS query_feedback (
+    id SERIAL PRIMARY KEY,
+    query_id INTEGER REFERENCES search_queries(id) ON DELETE CASCADE,
+    query TEXT NOT NULL,
+    answer TEXT,
+    confidence_score FLOAT,
+    rating INTEGER CHECK (rating IN (-1, 0, 1)),
+    feedback_text TEXT,
+    chunks_used TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_query_feedback_query_id ON query_feedback(query_id);
+CREATE INDEX IF NOT EXISTS idx_query_feedback_rating ON query_feedback(rating);
+CREATE INDEX IF NOT EXISTS idx_query_feedback_created_at ON query_feedback(created_at);

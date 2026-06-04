@@ -40,6 +40,7 @@ function App() {
   const [regDepartment, setRegDepartment] = useState('')
   const [newApiKey, setNewApiKey] = useState('')
   const [showRegPassword, setShowRegPassword] = useState(false)
+  const [lastSearch, setLastSearch] = useState(null)
 
   const handleLogin = async (credentialsFromModal) => {
     setIsLoggingIn(true)
@@ -160,8 +161,9 @@ function App() {
     setFilters(newFilters)
   }
 
-  const handleSourcesUpdate = (sources) => {
+  const handleSourcesUpdate = (sources, searchData = {}) => {
     setRetrievedSources(sources)
+    setLastSearch(searchData)
   }
 
   const handleUploadSuccess = (result) => {
@@ -373,7 +375,7 @@ function App() {
             {view === 'feedback' && (
               <div className="h-full overflow-y-auto p-8">
                 <div className="max-w-3xl mx-auto">
-                  <FeedbackPanel apiKey={apiKey} />
+                  <FeedbackPanel apiKey={apiKey} lastSearch={lastSearch} />
                 </div>
               </div>
             )}

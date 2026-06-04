@@ -32,7 +32,11 @@ class HybridSearchService:
         self.embeddings = EmbeddingsClient(api_key=openai_api_key)
         self.bm25 = BM25SearchEngine()
         self.rrf = RRFFusion()
-        self._initialize_bm25_index()
+
+        # Try to load persisted BM25 index
+        if not self.bm25.load_index():
+            logger.info("No persisted BM25 index found, initializing from PostgreSQL...")
+            self._initialize_bm25_index()
 
     def _initialize_bm25_index(self):
         """Load existing chunks from PostgreSQL into BM25 index."""
@@ -95,14 +99,15 @@ class HybridSearchService:
         bm25_results = self.bm25.search(query, top_k=50)
         latency['bm25_search_ms'] = int((time.time() - bm25_start) * 1000)
 
-        # Stage 4: RRF fusion
+        # Stage 4: RRF fusion with adaptive k
         fusion_start = time.time()
-        fused_results = self.rrf.fuse(vector_results, bm25_results, k=60)
+        corpus_size = self.vector_db.get_count()
+        fused_results = self.rrf.fuse(vector_results, bm25_results, corpus_size=corpus_size)
         latency['rrf_fusion_ms'] = int((time.time() - fusion_start) * 1000)
 
         # Stage 5: Apply metadata filter
         filter_start = time.time()
-        if metadata_filter:
+        if metadata_filter and 'document_ids' not in metadata_filter:
             # Note: Need to map fused results back to full payload for filtering
             filtered_results = self.rrf.apply_metadata_filter(fused_results, metadata_filter)
         else:
@@ -112,6 +117,39 @@ class HybridSearchService:
         # Truncate to top_k
         final_results = filtered_results[:top_k]
 
+        # Calculate confidence scores from actual vector similarity (cosine similarity 0-1)
+        # Use the top vector search result's similarity score (not RRF score)
+        confidence_score = 0.5
+        if vector_results and len(vector_results) > 0:
+            # vector_results[0]['score'] is the actual cosine similarity from postgres (0-1 range)
+            # This is the real relevance score, not the RRF-fused score
+            top_vector_similarity = float(vector_results[0].get('score', 0.5))
+            confidence_score = max(0.0, min(1.0, top_vector_similarity))
+            logger.info(f"Query confidence: {confidence_score:.3f} (from vector similarity)")
+
+        # Add confidence score and level to results
+        for result in final_results:
+            result['confidence_score'] = confidence_score
+            # Determine confidence level
+            if confidence_score >= 0.7:
+                result['confidence_level'] = 'high'
+            elif confidence_score >= 0.4:
+                result['confidence_level'] = 'medium'
+            else:
+                result['confidence_level'] = 'low'
+
+        # Return empty if no results found
+        if not final_results:
+            logger.warning(f"No results found for query: {query}")
+            return {
+                'query': query,
+                'chunks': [],
+                'search_type': 'hybrid',
+                'num_results': 0,
+                'latency_ms': latency,
+                'error': 'No relevant documents found. Please refine your search query.'
+            }
+
         latency['total_ms'] = int((time.time() - start_time) * 1000)
 
         return {
@@ -119,14 +157,20 @@ class HybridSearchService:
             'chunks': final_results,
             'search_type': 'hybrid',
             'num_results': len(final_results),
+            'confidence_score': round(confidence_score, 3),
             'latency_ms': latency,
         }
 
     def get_index_stats(self) -> Dict[str, Any]:
         """Get statistics about indexed data."""
+        corpus_size = self.vector_db.get_count()
+        optimal_k = self.rrf.get_optimal_k(corpus_size)
+
         return {
-            'postgres_vectors': self.vector_db.get_count(),
+            'postgres_vectors': corpus_size,
             'bm25_documents': self.bm25.get_corpus_size(),
             'vector_dimension': self.vector_db.vector_size,
             'embedding_model': self.embeddings.model,
+            'rrf_k': optimal_k,
+            'corpus_size_category': 'small' if corpus_size < 1_000 else 'medium' if corpus_size < 10_000 else 'large',
         }

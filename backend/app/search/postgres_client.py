@@ -100,7 +100,7 @@ class PostgresVectorDB:
                     department,
                     category,
                     created_at,
-                    1 - (embedding <-> %s::vector) AS score
+                    (2 - (embedding <-> %s::vector)) / 2 AS score
                 FROM chunks
                 WHERE embedding IS NOT NULL
                 ORDER BY embedding <-> %s::vector

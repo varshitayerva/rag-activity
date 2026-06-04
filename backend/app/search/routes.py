@@ -26,8 +26,11 @@ def get_hybrid_search_service() -> HybridSearchService:
     return _hybrid_search_service
 
 
-async def search_chunks(query: str, top_k: int = 10, filters: Dict[str, Any] = None) -> list:
-    """Search chunks using hybrid search (pgvector + BM25 with RRF fusion)."""
+async def search_chunks(query: str, top_k: int = 10, filters: Dict[str, Any] = None) -> Dict[str, Any]:
+    """Search chunks using hybrid search (pgvector + BM25 with RRF fusion).
+
+    Returns full result dict including chunks, confidence_score, and metadata.
+    """
     try:
         hybrid_search = get_hybrid_search_service()
 
@@ -44,10 +47,16 @@ async def search_chunks(query: str, top_k: int = 10, filters: Dict[str, Any] = N
                 metadata_filter['dateTo'] = filters['dateTo']
 
         result = await hybrid_search.search(query, top_k=top_k, metadata_filter=metadata_filter)
-        return result.get('chunks', [])
+        # Return full result dict with chunks, confidence_score, etc.
+        return result
     except Exception as e:
         logger.error(f"Hybrid search error: {e}")
-        return []
+        return {
+            'chunks': [],
+            'confidence_score': 0.0,
+            'num_results': 0,
+            'error': str(e)
+        }
 
 
 @router.post("/search")
@@ -86,13 +95,15 @@ async def search_endpoint(
 
         logger.info(f"Hybrid search: {query[:50]}...")
 
-        results = await search_chunks(query, top_k=top_k, filters=filters if filters else None)
+        search_result = await search_chunks(query, top_k=top_k, filters=filters if filters else None)
+        results = search_result.get('chunks', [])
         latency_ms = int((time.time() - start_time) * 1000)
 
         response = {
             "query": query,
             "results": results,
             "search_type": "hybrid",
+            "confidence_score": search_result.get('confidence_score', 0.0),
             "latency_ms": latency_ms,
             "result_count": len(results)
         }
@@ -194,13 +205,16 @@ async def generate(
         if dateTo:
             filters['dateTo'] = dateTo
 
-        results = await search_chunks(query, top_k=top_k, filters=filters if filters else None)
+        search_result = await search_chunks(query, top_k=top_k, filters=filters if filters else None)
+        results = search_result.get('chunks', [])
+        confidence_score = search_result.get('confidence_score', 0.0)
 
         if not results:
             return {
                 "query": query,
                 "answer": "No relevant documents found. Please refine your search query.",
                 "sources": [],
+                "confidence_score": 0.0,
                 "latency_ms": int((time.time() - start_time) * 1000)
             }
 
@@ -218,6 +232,7 @@ async def generate(
             "query": query,
             "answer": answer,
             "sources": results[:3],
+            "confidence_score": confidence_score,
             "latency_ms": latency_ms,
             "result_count": len(results)
         }

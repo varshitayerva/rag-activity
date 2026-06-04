@@ -1,7 +1,10 @@
 import { ExternalLink, Zap } from 'lucide-react'
 
 export function SourceCard({ source }) {
-  const { text, doc, section, page_number: page, score, chunk_id: chunkId } = source
+  const { text, doc, section, page_number: page, chunk_id: chunkId, vector_score } = source
+
+  // Use vector_score (semantic similarity) instead of RRF combined score
+  const score = vector_score || source.score || 0
 
   // Get relevance color based on score
   const getRelevanceColor = (score) => {
