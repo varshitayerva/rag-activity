@@ -260,7 +260,8 @@
       "Bash(python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8006)",
       "Bash(curl -s -X POST http://localhost:8006/api/auth/register -H 'Content-Type: application/json' -d '{\"username\":\"johndoe\",\"email\":\"john@example.com\",\"password\":\"John123456\",\"department\":\"Engineering\"}')",
       "Bash(python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8007)",
-      "Bash(curl -s -X POST http://localhost:8007/api/auth/register -H 'Content-Type: application/json' -d '{\"username\":\"johndoe\",\"email\":\"john@example.com\",\"password\":\"John123456\",\"department\":\"Engineering\"}')"
+      "Bash(curl -s -X POST http://localhost:8007/api/auth/register -H 'Content-Type: application/json' -d '{\"username\":\"johndoe\",\"email\":\"john@example.com\",\"password\":\"John123456\",\"department\":\"Engineering\"}')",
+      "Bash(curl -s http://localhost:3000)"
     ],
     "additionalDirectories": [
       "c:\\Users\\j.sebastian\\Desktop\\FDE RAG\\backend\\qdrant_storage"

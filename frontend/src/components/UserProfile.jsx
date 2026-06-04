@@ -19,8 +19,14 @@ export function UserProfile({ apiKey }) {
         })
         if (profileRes.ok) {
           const profileData = await profileRes.json()
-          setProfile(profileData.user)
-          setEditData(profileData.user || {})
+          console.log('Profile data:', profileData)
+          const user = profileData.user || profileData
+          setProfile(user)
+          setEditData(user || {})
+        } else {
+          console.error('Profile response not ok:', profileRes.status)
+          const errorData = await profileRes.json()
+          console.error('Error data:', errorData)
         }
 
         // Fetch stats (optional - don't fail if it doesn't exist)

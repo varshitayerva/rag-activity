@@ -41,25 +41,37 @@ function App() {
   const [newApiKey, setNewApiKey] = useState('')
   const [showRegPassword, setShowRegPassword] = useState(false)
 
-  const handleLogin = async (keyFromModal) => {
+  const handleLogin = async (credentialsFromModal) => {
     setIsLoggingIn(true)
     setLoginError('')
     try {
-      // Use key from modal if provided, otherwise use tempApiKey
-      const keyToUse = keyFromModal || tempApiKey
-      const response = await fetch('http://localhost:8007/api/user/profile', {
-        headers: { 'X-API-Key': keyToUse }
+      let loginData = {}
+
+      // Check if it's an API key (string) or username/password (object)
+      if (typeof credentialsFromModal === 'string') {
+        // API key login
+        loginData = { api_key: credentialsFromModal }
+      } else if (typeof credentialsFromModal === 'object') {
+        // Username/password login
+        loginData = { username: credentialsFromModal.username, password: credentialsFromModal.password }
+      }
+
+      const response = await fetch('http://localhost:8007/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginData)
       })
+
       if (response.ok) {
         const data = await response.json()
-        setApiKey(keyToUse)
-        setUserEmail(data.user.email)
-        localStorage.setItem('apiKey', keyToUse)
-        localStorage.setItem('userEmail', data.user.email)
+        setApiKey(data.api_key)
+        setUserEmail(data.email)
+        localStorage.setItem('apiKey', data.api_key)
+        localStorage.setItem('userEmail', data.email)
         setShowLoginModal(false)
         setTempApiKey('')
       } else {
-        setLoginError('Invalid API key')
+        setLoginError('Invalid credentials')
       }
     } catch (error) {
       setLoginError('Failed to authenticate. Make sure backend is running.')

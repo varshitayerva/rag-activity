@@ -17,6 +17,9 @@ export function AuthModal({
 
   // Login form
   const [apiKey, setApiKey] = useState('')
+  const [loginUsername, setLoginUsername] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [loginMethod, setLoginMethod] = useState('api') // 'api' or 'password'
 
   // Registration form
   const [username, setUsername] = useState('')
@@ -72,32 +75,102 @@ export function AuthModal({
           {/* LOGIN TAB */}
           {showTab === 'login' && (
             <>
-              <p className="text-gray-600 dark:text-gray-400 text-center mb-6 font-medium">Sign in with your API key</p>
+              <p className="text-gray-600 dark:text-gray-400 text-center mb-6 font-medium">Sign in to your account</p>
+
+              {/* Login Method Toggle */}
+              <div className="flex gap-2 mb-6 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setLoginMethod('api')}
+                  className={`flex-1 py-2 px-3 rounded-md font-bold transition-all ${
+                    loginMethod === 'api'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  API Key
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLoginMethod('password')}
+                  className={`flex-1 py-2 px-3 rounded-md font-bold transition-all ${
+                    loginMethod === 'password'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  Username
+                </button>
+              </div>
+
               <form onSubmit={(e) => {
                 e.preventDefault()
-                onLogin(apiKey)
+                if (loginMethod === 'api') {
+                  onLogin(apiKey)
+                } else {
+                  onLogin({ username: loginUsername, password: loginPassword })
+                }
               }} className="space-y-5">
-                {/* API Key Input */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">API Key</label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      placeholder="sk-demo-key-12345"
-                      className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                    >
-                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                    </button>
+                {/* API Key Login */}
+                {loginMethod === 'api' && (
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">API Key</label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        placeholder="sk-demo-key-12345"
+                        className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-3.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                      >
+                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Username/Password Login */}
+                {loginMethod === 'password' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Username</label>
+                      <input
+                        type="text"
+                        value={loginUsername}
+                        onChange={(e) => setLoginUsername(e.target.value)}
+                        placeholder="johndoe"
+                        className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Password</label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-3.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                        >
+                          {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Demo Key Info */}
                 <div className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-600 p-4 rounded-lg">

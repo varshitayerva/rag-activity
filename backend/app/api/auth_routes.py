@@ -28,7 +28,9 @@ class RegisterResponse(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    api_key: str
+    api_key: str = None
+    username: str = None
+    password: str = None
 
 
 @router.post("/register", response_model=RegisterResponse)
@@ -91,28 +93,41 @@ async def register_user(request: RegisterRequest):
 
 @router.post("/login")
 async def login_user(request: LoginRequest):
-    """Login with API key."""
+    """Login with API key or username/password."""
     try:
-        # Verify API key exists
         with db_client.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
-                SELECT id, username, email, department, role
-                FROM users
-                WHERE api_key = %s AND is_active = true
-            """, (request.api_key,))
+
+            # Login with API key
+            if request.api_key:
+                cursor.execute("""
+                    SELECT id, username, email, department, role, api_key
+                    FROM users
+                    WHERE api_key = %s AND is_active = true
+                """, (request.api_key,))
+
+            # Login with username/password
+            elif request.username and request.password:
+                password_hash = hashlib.sha256(request.password.encode()).hexdigest()
+                cursor.execute("""
+                    SELECT id, username, email, department, role, api_key
+                    FROM users
+                    WHERE username = %s AND password_hash = %s AND is_active = true
+                """, (request.username, password_hash))
+            else:
+                raise HTTPException(status_code=400, detail="Provide either API key or username/password")
 
             result = cursor.fetchone()
 
             if not result:
-                raise HTTPException(status_code=401, detail="Invalid API key")
+                raise HTTPException(status_code=401, detail="Invalid credentials")
 
             # Update last login
             cursor.execute("""
                 UPDATE users
                 SET last_login = CURRENT_TIMESTAMP
-                WHERE api_key = %s
-            """, (request.api_key,))
+                WHERE id = %s
+            """, (result[0],))
 
             return {
                 "user_id": result[0],
@@ -120,6 +135,7 @@ async def login_user(request: LoginRequest):
                 "email": result[2],
                 "department": result[3],
                 "role": result[4],
+                "api_key": result[5],
                 "message": "Login successful"
             }
 
