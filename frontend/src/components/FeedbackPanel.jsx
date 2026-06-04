@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { MessageSquare, Send, Star, TrendingUp, AlertCircle } from 'lucide-react'
 
-export function FeedbackPanel({ apiKey = 'sk-demo-key-12345' }) {
+export function FeedbackPanel({ apiKey }) {
   const [activeTab, setActiveTab] = useState('submit')
   const [query, setQuery] = useState('')
   const [answer, setAnswer] = useState('')
@@ -20,7 +20,7 @@ export function FeedbackPanel({ apiKey = 'sk-demo-key-12345' }) {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await fetch('http://localhost:8003/api/feedback/stats')
+      const response = await fetch('http://localhost:8007/api/feedback/stats')
       const data = await response.json()
       setStats(data.stats)
       setTrends(data.trends)
@@ -35,7 +35,7 @@ export function FeedbackPanel({ apiKey = 'sk-demo-key-12345' }) {
     setMessage('')
 
     try {
-      const response = await fetch('http://localhost:8003/api/feedback/submit', {
+      const response = await fetch('http://localhost:8007/api/feedback/submit', {
         method: 'POST',
         headers: {
           'X-API-Key': apiKey,

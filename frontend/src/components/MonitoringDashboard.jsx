@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { AlertTriangle, Activity, TrendingDown, AlertCircle, CheckCircle2 } from 'lucide-react'
 
-export function MonitoringDashboard({ apiKey = 'sk-demo-key-12345' }) {
+export function MonitoringDashboard({ apiKey }) {
   const [metrics, setMetrics] = useState(null)
   const [alerts, setAlerts] = useState(null)
   const [health, setHealth] = useState(null)
@@ -17,13 +17,13 @@ export function MonitoringDashboard({ apiKey = 'sk-demo-key-12345' }) {
   const fetchData = async () => {
     try {
       const [metricsRes, alertsRes, healthRes] = await Promise.all([
-        fetch('http://localhost:8003/api/monitoring/metrics', {
+        fetch('http://localhost:8007/api/monitoring/metrics', {
           headers: { 'X-API-Key': apiKey }
         }).then(r => r.json()),
-        fetch('http://localhost:8003/api/alerts/status', {
+        fetch('http://localhost:8007/api/alerts/status', {
           headers: { 'X-API-Key': apiKey }
         }).then(r => r.json()),
-        fetch('http://localhost:8003/api/health/detailed', {
+        fetch('http://localhost:8007/api/health/detailed', {
           headers: { 'X-API-Key': apiKey }
         }).then(r => r.json())
       ])

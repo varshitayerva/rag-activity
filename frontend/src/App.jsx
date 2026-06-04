@@ -11,8 +11,9 @@ import { CacheDashboard } from './components/CacheDashboard'
 import { MonitoringDashboard } from './components/MonitoringDashboard'
 import { AdminDashboard } from './components/AdminDashboard'
 import { UserStatsDashboard } from './components/UserStatsDashboard'
+import { AuthModal } from './components/AuthModal'
 import { apiClient } from './utils/api'
-import { Search, Upload, Moon, Sun, Menu, X, User, MessageSquare, Zap, Activity, BarChart3, LineChart } from 'lucide-react'
+import { Search, Upload, Moon, Sun, Menu, X, User, MessageSquare, Zap, Activity, BarChart3, LineChart, LogOut } from 'lucide-react'
 
 function App() {
   const [view, setView] = useState('chat')
@@ -22,8 +23,103 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [documentCount, setDocumentCount] = useState(0)
   const [chunkCount, setChunkCount] = useState(0)
+  const [apiKey, setApiKey] = useState(localStorage.getItem('apiKey') || '')
+  const [showLoginModal, setShowLoginModal] = useState(!apiKey)
+  const [loginError, setLoginError] = useState('')
+  const [tempApiKey, setTempApiKey] = useState('')
+  const [isLoggingIn, setIsLoggingIn] = useState(false)
+  const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || '')
+  const [showPassword, setShowPassword] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [showApiInfo, setShowApiInfo] = useState(false)
+  const [isRegistering, setIsRegistering] = useState(false)
+  const [registrationError, setRegistrationError] = useState('')
+  const [regUsername, setRegUsername] = useState('')
+  const [regEmail, setRegEmail] = useState('')
+  const [regPassword, setRegPassword] = useState('')
+  const [regDepartment, setRegDepartment] = useState('')
+  const [newApiKey, setNewApiKey] = useState('')
+  const [showRegPassword, setShowRegPassword] = useState(false)
+
+  const handleLogin = async (credentialsFromModal) => {
+    setIsLoggingIn(true)
+    setLoginError('')
+    try {
+      let loginData = {}
+
+      // Check if it's an API key (string) or username/password (object)
+      if (typeof credentialsFromModal === 'string') {
+        // API key login
+        loginData = { api_key: credentialsFromModal }
+      } else if (typeof credentialsFromModal === 'object') {
+        // Username/password login
+        loginData = { username: credentialsFromModal.username, password: credentialsFromModal.password }
+      }
+
+      const response = await fetch('http://localhost:8007/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginData)
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setApiKey(data.api_key)
+        setUserEmail(data.email)
+        localStorage.setItem('apiKey', data.api_key)
+        localStorage.setItem('userEmail', data.email)
+        setShowLoginModal(false)
+        setTempApiKey('')
+      } else {
+        setLoginError('Invalid credentials')
+      }
+    } catch (error) {
+      setLoginError('Failed to authenticate. Make sure backend is running.')
+    } finally {
+      setIsLoggingIn(false)
+    }
+  }
+
+  const handleLogout = () => {
+    setApiKey('')
+    setUserEmail('')
+    localStorage.removeItem('apiKey')
+    localStorage.removeItem('userEmail')
+    setShowLoginModal(true)
+  }
+
+  const handleRegister = async (userData) => {
+    setIsRegistering(true)
+    setRegistrationError('')
+    try {
+      const response = await fetch('http://localhost:8007/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setNewApiKey(data.api_key)
+        // Auto-login with new account
+        setApiKey(data.api_key)
+        setUserEmail(data.email)
+        localStorage.setItem('apiKey', data.api_key)
+        localStorage.setItem('userEmail', data.email)
+        setShowLoginModal(false)
+        setIsRegistering(false)
+      } else {
+        const error = await response.json()
+        setRegistrationError(error.detail || 'Registration failed')
+      }
+    } catch (error) {
+      setRegistrationError('Failed to register. Make sure backend is running.')
+    } finally {
+      setIsRegistering(false)
+    }
+  }
 
   useEffect(() => {
+    if (!apiKey) return
     const fetchCounts = async () => {
       try {
         const docs = await apiClient.getDocuments()
@@ -33,17 +129,19 @@ function App() {
       }
     }
     fetchCounts()
-  }, [])
+    const interval = setInterval(fetchCounts, 10000)
+    return () => clearInterval(interval)
+  }, [apiKey])
 
   useEffect(() => {
     const fetchChunks = async () => {
       try {
-        const response = await fetch('http://localhost:8003/api/documents')
+        const response = await fetch('http://localhost:8007/api/documents')
         if (response.ok) {
           const data = await response.json()
           let totalChunks = 0
           for (const doc of data.documents) {
-            const chunksRes = await fetch(`http://localhost:8003/api/documents/${doc.id}/chunks`)
+            const chunksRes = await fetch(`http://localhost:8007/api/documents/${doc.id}/chunks`)
             if (chunksRes.ok) {
               const chunksData = await chunksRes.json()
               totalChunks += chunksData.count
@@ -81,6 +179,20 @@ function App() {
     { id: 'stats', label: 'My Stats', icon: LineChart },
   ]
 
+  if (showLoginModal) {
+    return (
+      <AuthModal
+        darkMode={darkMode}
+        onLogin={handleLogin}
+        onRegister={handleRegister}
+        loginError={loginError}
+        registrationError={registrationError}
+        isLoggingIn={isLoggingIn}
+        isRegistering={isRegistering}
+      />
+    )
+  }
+
   return (
     <div className={`h-screen flex flex-col ${darkMode ? 'dark' : ''}`}>
       {/* Header */}
@@ -98,20 +210,33 @@ function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-full p-1 border border-white/20">
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2.5 rounded-full hover:bg-white/20 transition-all duration-300 transform hover:scale-110"
-              title="Toggle dark mode"
-            >
-              {darkMode ? <Sun size={22} className="text-yellow-300" /> : <Moon size={22} className="text-blue-200" />}
-            </button>
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2.5 rounded-full hover:bg-white/20 transition-all duration-300 lg:hidden"
-            >
-              {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
-            </button>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-sm text-blue-100">{userEmail || 'Demo User'}</p>
+              <p className="text-xs text-blue-200">Logged in</p>
+            </div>
+            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-full p-1 border border-white/20">
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-2.5 rounded-full hover:bg-white/20 transition-all duration-300 transform hover:scale-110"
+                title="Toggle dark mode"
+              >
+                {darkMode ? <Sun size={22} className="text-yellow-300" /> : <Moon size={22} className="text-blue-200" />}
+              </button>
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2.5 rounded-full hover:bg-white/20 transition-all duration-300 lg:hidden"
+              >
+                {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
+              </button>
+              <button
+                onClick={handleLogout}
+                className="p-2.5 rounded-full hover:bg-white/20 transition-all duration-300"
+                title="Logout"
+              >
+                <LogOut size={22} />
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -240,7 +365,7 @@ function App() {
             {view === 'profile' && (
               <div className="h-full overflow-y-auto p-8">
                 <div className="max-w-4xl mx-auto">
-                  <UserProfile apiKey="sk-demo-key-12345" />
+                  <UserProfile apiKey={apiKey} />
                 </div>
               </div>
             )}
@@ -248,7 +373,7 @@ function App() {
             {view === 'feedback' && (
               <div className="h-full overflow-y-auto p-8">
                 <div className="max-w-3xl mx-auto">
-                  <FeedbackPanel apiKey="sk-demo-key-12345" />
+                  <FeedbackPanel apiKey={apiKey} />
                 </div>
               </div>
             )}
@@ -256,7 +381,7 @@ function App() {
             {view === 'cache' && (
               <div className="h-full overflow-y-auto p-8">
                 <div className="max-w-4xl mx-auto">
-                  <CacheDashboard apiKey="sk-demo-key-12345" />
+                  <CacheDashboard apiKey={apiKey} />
                 </div>
               </div>
             )}
@@ -264,7 +389,7 @@ function App() {
             {view === 'monitoring' && (
               <div className="h-full overflow-y-auto p-8">
                 <div className="max-w-6xl mx-auto">
-                  <MonitoringDashboard apiKey="sk-demo-key-12345" />
+                  <MonitoringDashboard apiKey={apiKey} />
                 </div>
               </div>
             )}

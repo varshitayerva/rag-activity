@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8003'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8007'
 
 export const apiClient = {
   async search(query, topK = 10, filters = {}) {
