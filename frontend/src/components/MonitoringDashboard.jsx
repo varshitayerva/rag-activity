@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { AlertTriangle, Activity, TrendingDown, AlertCircle, CheckCircle2 } from 'lucide-react'
 
-export function MonitoringDashboard({ apiKey = 'sk-demo-key-12345' }) {
+export function MonitoringDashboard({ apiKey }) {
   const [metrics, setMetrics] = useState(null)
   const [alerts, setAlerts] = useState(null)
   const [health, setHealth] = useState(null)

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { MessageSquare, Send, Star, TrendingUp, AlertCircle } from 'lucide-react'
 
-export function FeedbackPanel({ apiKey = 'sk-demo-key-12345' }) {
+export function FeedbackPanel({ apiKey }) {
   const [activeTab, setActiveTab] = useState('submit')
   const [query, setQuery] = useState('')
   const [answer, setAnswer] = useState('')

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { BarChart3, Zap, RefreshCw, Trash2 } from 'lucide-react'
 
-export function CacheDashboard({ apiKey = 'sk-demo-key-12345' }) {
+export function CacheDashboard({ apiKey }) {
   const [cacheStats, setCacheStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [clearing, setClearing] = useState(false)

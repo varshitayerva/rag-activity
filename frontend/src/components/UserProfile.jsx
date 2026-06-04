@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { User, Mail, Building2, Shield, LogIn, Copy, Check, Edit2, Save, X } from 'lucide-react'
 
-export function UserProfile({ apiKey = 'sk-demo-key-12345' }) {
+export function UserProfile({ apiKey }) {
   const [profile, setProfile] = useState(null)
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
