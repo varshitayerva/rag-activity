@@ -25,22 +25,28 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
       const chunks = generatedResult.sources || []
       const answer = generatedResult.answer || 'No answer generated'
       const confidenceScore = generatedResult.confidence_score || 0.5
+      const hallucinationRisk = generatedResult.hallucination_risk || 0.0
+      const riskLevel = generatedResult.risk_level || 'LOW'
 
       // Notify parent of retrieved sources with confidence
       onSourcesUpdate?.(chunks, {
         query: userQuery,
         answer: answer,
-        confidence_score: confidenceScore
+        confidence_score: confidenceScore,
+        hallucination_risk: hallucinationRisk,
+        risk_level: riskLevel
       })
 
-      // Display the LLM-generated answer with confidence badge
+      // Display the LLM-generated answer with confidence and hallucination indicators
       setMessages(prev => [
         ...prev,
         {
           role: 'assistant',
           content: answer,
           sources: chunks,
-          confidence_score: confidenceScore
+          confidence_score: confidenceScore,
+          hallucination_risk: hallucinationRisk,
+          risk_level: riskLevel
         }
       ])
     } catch (error) {
@@ -135,10 +141,10 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
               )}
               <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
 
-              {/* Confidence Score Badge */}
+              {/* Confidence & Hallucination Risk Badges */}
               {msg.confidence_score !== undefined && !msg.error && msg.role === 'assistant' && (
-                <div className="mt-3 pt-3 border-t border-gray-300 dark:border-gray-600">
-                  <div className="flex items-center gap-2">
+                <div className="mt-3 pt-3 border-t border-gray-300 dark:border-gray-600 space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs text-gray-600 dark:text-gray-400">Confidence:</span>
                     <div className="inline-flex items-center gap-1 bg-white dark:bg-gray-600 px-2 py-1 rounded-full text-xs font-semibold">
                       {msg.confidence_score >= 0.7 ? (
@@ -159,6 +165,28 @@ export function ChatPanel({ onSourcesUpdate, filters = {} }) {
                       )}
                     </div>
                   </div>
+
+                  {msg.hallucination_risk !== undefined && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs text-gray-600 dark:text-gray-400">Hallucination Risk:</span>
+                      <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${
+                        msg.risk_level === 'HIGH'
+                          ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                          : msg.risk_level === 'MEDIUM'
+                          ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'
+                          : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                      }`}>
+                        <span className={`w-2 h-2 rounded-full ${
+                          msg.risk_level === 'HIGH'
+                            ? 'bg-red-500'
+                            : msg.risk_level === 'MEDIUM'
+                            ? 'bg-yellow-500'
+                            : 'bg-green-500'
+                        }`}></span>
+                        <span>{msg.risk_level} Risk ({Math.round(msg.hallucination_risk * 100)}%)</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
