@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { AlertTriangle, Activity, TrendingDown, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { API_CONFIG } from '../config/api'
 
 export function MonitoringDashboard({ apiKey }) {
   const [metrics, setMetrics] = useState(null)

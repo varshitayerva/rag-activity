@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { BarChart3, Zap, RefreshCw, Trash2 } from 'lucide-react'
+import { API_CONFIG } from '../config/api'
 
 export function CacheDashboard({ apiKey }) {
   const [cacheStats, setCacheStats] = useState(null)

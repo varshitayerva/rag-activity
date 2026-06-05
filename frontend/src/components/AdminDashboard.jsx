@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { BarChart3, Users, AlertCircle, Zap, TrendingUp } from 'lucide-react'
+import { API_CONFIG } from '../config/api'
 
 export function AdminDashboard() {
   const [stats, setStats] = useState(null)
@@ -12,7 +13,7 @@ export function AdminDashboard() {
       try {
         const [statsRes, feedbackRes, healthRes] = await Promise.all([
           fetch(API_CONFIG.metrics.main).then(r => r.json()),
-          fetch('http://localhost:8000/api/feedback/stats').then(r => r.json()),
+          fetch(API_CONFIG.feedback.submit).then(r => r.json()),
           fetch(API_CONFIG.metrics.health).then(r => r.json()),
         ])
         setStats(statsRes)

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { User, Search, Zap, Calendar, TrendingUp } from 'lucide-react'
+import { API_CONFIG } from '../config/api'
 
 export function UserStatsDashboard() {
   const [userStats, setUserStats] = useState(null)
