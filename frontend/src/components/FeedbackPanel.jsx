@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ThumbsUp, ThumbsDown, BarChart3, AlertCircle } from 'lucide-react'
+import { API_CONFIG } from '../config/api'
 
 export function FeedbackPanel({ apiKey, lastSearch = null }) {
   const [activeTab, setActiveTab] = useState('submit')
@@ -29,13 +30,13 @@ export function FeedbackPanel({ apiKey, lastSearch = null }) {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await fetch('http://localhost:8007/api/admin/feedback-analytics?days=30', {
+      const response = await fetch('http://localhost:8000/api/admin/feedback-analytics?days=30', {
         headers: { 'X-API-Key': apiKey }
       })
       const data = await response.json()
       setAnalytics(data.data)
 
-      const lowConfResponse = await fetch('http://localhost:8007/api/admin/low-confidence-queries', {
+      const lowConfResponse = await fetch(API_CONFIG.feedback.lowConfidence, {
         headers: { 'X-API-Key': apiKey }
       })
       const lowConfData = await lowConfResponse.json()
@@ -58,7 +59,7 @@ export function FeedbackPanel({ apiKey, lastSearch = null }) {
       formData.append('feedback_text', feedbackText || '')
       formData.append('confidence_score', confidenceScore || 0.5)
 
-      const response = await fetch('http://localhost:8007/api/feedback', {
+      const response = await fetch(API_CONFIG.feedback.submit, {
         method: 'POST',
         headers: { 'X-API-Key': apiKey },
         body: formData

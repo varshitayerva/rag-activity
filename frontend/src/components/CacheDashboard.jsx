@@ -15,7 +15,7 @@ export function CacheDashboard({ apiKey }) {
 
   const fetchCacheStats = async () => {
     try {
-      const response = await fetch('http://localhost:8007/api/cache/stats', {
+      const response = await fetch(API_CONFIG.cache.stats, {
         headers: { 'X-API-Key': apiKey }
       })
       const data = await response.json()
@@ -31,7 +31,7 @@ export function CacheDashboard({ apiKey }) {
     setClearing(true)
     setMessage('')
     try {
-      const response = await fetch('http://localhost:8007/api/cache/clear', {
+      const response = await fetch(API_CONFIG.cache.clear, {
         method: 'POST',
         headers: { 'X-API-Key': apiKey }
       })

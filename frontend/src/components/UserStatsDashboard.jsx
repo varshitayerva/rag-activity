@@ -8,7 +8,7 @@ export function UserStatsDashboard() {
   useEffect(() => {
     const fetchUserStats = async () => {
       try {
-        const response = await fetch('http://localhost:8007/api/user/stats', {
+        const response = await fetch(API_CONFIG.user.stats, {
           headers: { 'X-API-Key': 'sk-demo-key-12345' }
         })
         const data = await response.json()

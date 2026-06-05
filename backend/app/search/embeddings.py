@@ -1,7 +1,9 @@
 import os
 import hashlib
 import numpy as np
-from typing import List, Union
+import logging
+import requests
+from typing import List
 
 try:
     from dotenv import load_dotenv
@@ -9,21 +11,31 @@ try:
 except ImportError:
     pass
 
+logger = logging.getLogger(__name__)
+
 
 class EmbeddingsClient:
     def __init__(self, model: str = "sentence-transformers/all-mpnet-base-v2", api_key: str = None,
                  use_cache: bool = True):
-        """Initialize HuggingFace sentence-transformers embeddings client (1536 dimensions).
+        """Initialize HuggingFace Inference API embeddings client.
 
         Args:
-            model: HuggingFace sentence-transformers model ID
-            api_key: Not used (HF_TOKEN from env used by transformers library)
+            model: HuggingFace model ID
+            api_key: Not used (HF_TOKEN from env)
             use_cache: Whether to cache embeddings (default: True)
         """
         self.model = model
-        self._embedder = None
+        self.api_url = os.getenv("HF_API_URL", "https://api-inference.huggingface.co/models")
+        self.hf_token = os.getenv("HF_TOKEN")
         self.embedding_dim = 1536
-        self.base_dim = self._get_base_dim(model)
+        self.base_dim = 768
+
+        if not self.hf_token:
+            logger.warning("HF_TOKEN not set - embeddings will use mock fallback")
+            self.available = False
+        else:
+            self.available = True
+            logger.info(f"HuggingFace Inference API initialized for {model}")
 
         # Initialize cache
         if use_cache:
@@ -35,36 +47,14 @@ class EmbeddingsClient:
         else:
             self.cache = None
 
-    def _get_base_dim(self, model: str) -> int:
-        """Get base embedding dimension for HuggingFace model."""
-        dims = {
-            "sentence-transformers/all-MiniLM-L6-v2": 384,
-            "sentence-transformers/all-mpnet-base-v2": 768,
-            "sentence-transformers/paraphrase-MiniLM-L6-v2": 384,
-            "sentence-transformers/paraphrase-mpnet-base-v2": 768,
-            "sentence-transformers/distilbert-base-multilingual-cased": 768,
-        }
-        return dims.get(model, 768)
-
-    def _get_embedder(self):
-        """Lazy load sentence-transformers model from HuggingFace."""
-        if self._embedder is None:
-            try:
-                from sentence_transformers import SentenceTransformer
-                print(f"Loading HuggingFace model: {self.model}")
-                self._embedder = SentenceTransformer(self.model)
-            except ImportError:
-                raise ImportError("sentence-transformers not installed. Run: pip install sentence-transformers")
-        return self._embedder
-
     def embed_query(self, query: str) -> List[float]:
-        """Embed a single query string.
+        """Embed a single query string via Inference API.
 
         Args:
             query: Query text
 
         Returns:
-            Embedding vector (list of floats, 1536 dimensions)
+            Embedding vector (list of floats)
         """
         # Check cache first
         if self.cache:
@@ -73,9 +63,23 @@ class EmbeddingsClient:
                 return cached
 
         try:
-            embedder = self._get_embedder()
-            embedding = embedder.encode(query, convert_to_tensor=False)
-            # Expand to 1536 dimensions
+            if not self.available:
+                return self._mock_embedding(query)
+
+            url = f"{self.api_url}/{self.model}"
+            headers = {"Authorization": f"Bearer {self.hf_token}"}
+
+            response = requests.post(
+                url,
+                headers=headers,
+                json={"inputs": query},
+                timeout=30
+            )
+            response.raise_for_status()
+
+            embedding = response.json()[0]
+
+            # Expand from 768 to 1536 dimensions
             embedding = self._expand_to_1536(embedding)
 
             # Store in cache
@@ -83,18 +87,19 @@ class EmbeddingsClient:
                 self.cache.set(query, embedding)
 
             return embedding
+
         except Exception as e:
-            print(f"HuggingFace embedding failed: {e}. Using mock embedding.")
+            logger.error(f"Inference API embedding failed: {e}. Using mock embedding.")
             return self._mock_embedding(query)
 
     def embed_batch(self, texts: List[str]) -> List[List[float]]:
-        """Embed multiple texts in batch with caching for cache hits.
+        """Embed multiple texts via Inference API.
 
         Args:
             texts: List of text strings
 
         Returns:
-            List of embedding vectors (1536 dimensions each)
+            List of embedding vectors
         """
         if not texts:
             return []
@@ -119,12 +124,28 @@ class EmbeddingsClient:
         # Embed texts not in cache
         if to_embed:
             try:
-                embedder = self._get_embedder()
-                batch_embeddings = embedder.encode(to_embed, convert_to_tensor=False)
+                if not self.available:
+                    for text in to_embed:
+                        embeddings.append(self._mock_embedding(text))
+                    return embeddings
+
+                url = f"{self.api_url}/{self.model}"
+                headers = {"Authorization": f"Bearer {self.hf_token}"}
+
+                response = requests.post(
+                    url,
+                    headers=headers,
+                    json={"inputs": to_embed},
+                    timeout=60
+                )
+                response.raise_for_status()
+
+                batch_embeddings = response.json()
 
                 for idx, embedding in enumerate(batch_embeddings):
-                    # Expand to 1536 dimensions
+                    # Expand from 768 to 1536 dimensions
                     expanded = self._expand_to_1536(embedding)
+
                     # Cache it
                     if self.cache:
                         self.cache.set(to_embed[idx], expanded)
@@ -134,7 +155,7 @@ class EmbeddingsClient:
                     embeddings.insert(insert_pos, expanded)
 
             except Exception as e:
-                print(f"HuggingFace batch embedding failed: {e}. Using mock embeddings.")
+                logger.error(f"Inference API batch embedding failed: {e}. Using mock embeddings.")
                 for text in to_embed:
                     embeddings.append(self._mock_embedding(text))
 
@@ -147,18 +168,20 @@ class EmbeddingsClient:
             chunks: List of chunk dicts with 'text' field
 
         Returns:
-            List of embedding vectors (1536 dimensions each)
+            List of embedding vectors
         """
         texts = [chunk['text'] for chunk in chunks]
         return self.embed_batch(texts)
 
-    def _expand_to_1536(self, embedding: np.ndarray) -> List[float]:
-        """Expand embedding to 1536 dimensions by concatenating duplicates and padding."""
+    def _expand_to_1536(self, embedding: List[float]) -> List[float]:
+        """Expand embedding from 768 to 1536 dimensions by concatenating duplicates and padding."""
+        if isinstance(embedding, list):
+            embedding = np.array(embedding, dtype=np.float32)
+
         if len(embedding) >= 1536:
             return embedding[:1536].tolist()
 
         # Duplicate and pad to 1536 dimensions
-        embedding = np.array(embedding, dtype=np.float32)
         repeats = (1536 // len(embedding)) + 1
         expanded = np.tile(embedding, repeats)[:1536]
 
@@ -167,9 +190,49 @@ class EmbeddingsClient:
         return expanded.tolist()
 
     def _mock_embedding(self, text: str) -> List[float]:
-        """Generate deterministic mock embedding based on text hash."""
-        text_hash = hashlib.md5(text.encode()).digest()
-        np.random.seed(int.from_bytes(text_hash[:4], 'big'))
-        embedding = np.random.randn(self.embedding_dim).astype(np.float32)
-        embedding = embedding / np.linalg.norm(embedding)
+        """Generate semantic-aware mock embedding based on text content.
+
+        Uses TF-IDF-like approach instead of pure random noise.
+        Similar texts will have similar embeddings.
+        """
+        # Tokenize and get word frequencies
+        words = text.lower().split()
+        word_freqs = {}
+        for word in words:
+            # Clean word
+            word = ''.join(c for c in word if c.isalnum())
+            if len(word) > 2:
+                word_freqs[word] = word_freqs.get(word, 0) + 1
+
+        # Initialize embedding with zeros
+        embedding = np.zeros(self.embedding_dim, dtype=np.float32)
+
+        if not word_freqs:
+            # Fallback for empty text
+            text_hash = hashlib.md5(text.encode()).digest()
+            np.random.seed(int.from_bytes(text_hash[:4], 'big'))
+            embedding = np.random.randn(self.embedding_dim).astype(np.float32)
+        else:
+            # Build embedding from word hashes
+            total_words = sum(word_freqs.values())
+            for word, freq in word_freqs.items():
+                # Hash each word to consistent dimensions
+                word_hash = int(hashlib.md5(word.encode()).hexdigest(), 16)
+
+                # Distribute word's contribution across embedding dimensions
+                for i in range(self.embedding_dim):
+                    # Use word hash to create deterministic but varied values
+                    dimension_seed = (word_hash + i) % 1000000
+                    np.random.seed(dimension_seed)
+                    # Add word frequency weighted contribution
+                    contribution = np.random.randn() * (freq / total_words)
+                    embedding[i] += contribution
+
+        # Normalize to unit vector for consistent similarity scores
+        norm = np.linalg.norm(embedding)
+        if norm > 0:
+            embedding = embedding / norm
+        else:
+            embedding = np.ones(self.embedding_dim, dtype=np.float32) / np.sqrt(self.embedding_dim)
+
         return embedding.tolist()

@@ -274,7 +274,13 @@
       "Bash(curl -s -X GET http://localhost:8007/api/auth/profile -H 'X-API-Key: sk-6yPue0UxJamcskzLn6Eaqn-abI4stmuS')",
       "Bash(curl -s -X POST http://localhost:8007/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"Ram\",\"password\":\"Pass@123\"}')",
       "Bash(curl -s -X GET http://localhost:8007/api/auth/profile -H 'X-API-Key: sk-22hzyUkD7pOvVl9VIK6M6OXQPGfyinwq')",
-      "Bash(curl -s -X GET http://localhost:8007/api/user/stats -H 'X-API-Key: sk-22hzyUkD7pOvVl9VIK6M6OXQPGfyinwq')"
+      "Bash(curl -s -X GET http://localhost:8007/api/user/stats -H 'X-API-Key: sk-22hzyUkD7pOvVl9VIK6M6OXQPGfyinwq')",
+      "Bash(python -c \"import nltk; print\\('NLTK installed successfully'\\)\")",
+      "Bash(python -c \"from backend.app.main import app; print\\('OK - FastAPI app imports successfully'\\)\")",
+      "Bash(python3 -m py_compile /c/Users/rohan.urmude/Desktop/FDE/rag/rag-activity/backend/app/search/hybrid_search.py)",
+      "Bash(python3 -c \"import backend.app.search.hybrid_search\")",
+      "Bash(curl -X POST http://localhost:8000/api/login -H \"Content-Type: application/json\" -d '{\"username\":\"Ram\",\"password\":\"password\"}')",
+      "Bash(curl -X POST http://localhost:8000/api/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"Ram\",\"password\":\"password\",\"api_key\":null}')"
     ],
     "additionalDirectories": [
       "c:\\Users\\j.sebastian\\Desktop\\FDE RAG\\backend\\qdrant_storage",

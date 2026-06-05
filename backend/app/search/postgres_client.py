@@ -16,16 +16,19 @@ logger = logging.getLogger(__name__)
 class PostgresVectorDB:
     """Vector database using PostgreSQL + pgvector with HNSW indexing."""
 
-    def __init__(self, host: str = "localhost", user: str = "postgres",
-                 password: str = "1234", database: str = "fde_rag", port: int = 5432):
+    def __init__(self, host: str = None, user: str = None,
+                 password: str = None, database: str = None, port: int = None):
         """Initialize PostgreSQL connection."""
+        import os
         self.conn_params = {
-            "host": host,
-            "user": user,
-            "password": password,
-            "database": database,
-            "port": port
+            "host": host or os.getenv("DB_HOST", "localhost"),
+            "user": user or os.getenv("DB_USER", "postgres"),
+            "password": password or os.getenv("DB_PASSWORD"),
+            "database": database or os.getenv("DB_NAME", "fde_rag"),
+            "port": port or int(os.getenv("DB_PORT", 5432))
         }
+        if not self.conn_params["password"]:
+            raise ValueError("Database password must be provided via DB_PASSWORD environment variable")
         self.connection = None
         self.vector_size = 1536
         self._connect()
@@ -194,6 +197,36 @@ class PostgresVectorDB:
         except Exception as e:
             logger.error(f"Error getting count: {e}")
             return 0
+        finally:
+            cursor.close()
+
+    def get_chunk_context(self, doc_id: int, chunk_index: int, offset: int) -> Optional[Dict[str, Any]]:
+        """
+        Get neighboring chunk for context expansion.
+
+        Args:
+            doc_id: Document ID
+            chunk_index: Current chunk index
+            offset: -1 for previous chunk, +1 for next chunk
+
+        Returns:
+            Chunk dict with text, or None if not found
+        """
+        if not self.connection:
+            self._connect()
+
+        cursor = self.connection.cursor(cursor_factory=RealDictCursor)
+        try:
+            target_index = chunk_index + offset
+            cursor.execute(
+                "SELECT id, text, chunk_index FROM chunks WHERE document_id = %s AND chunk_index = %s LIMIT 1",
+                (doc_id, target_index)
+            )
+            result = cursor.fetchone()
+            return dict(result) if result else None
+        except Exception as e:
+            logger.warning(f"Error fetching context chunk: {e}")
+            return None
         finally:
             cursor.close()
 

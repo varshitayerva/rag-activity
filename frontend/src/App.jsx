@@ -13,6 +13,7 @@ import { AdminDashboard } from './components/AdminDashboard'
 import { UserStatsDashboard } from './components/UserStatsDashboard'
 import { AuthModal } from './components/AuthModal'
 import { apiClient } from './utils/api'
+import { API_CONFIG } from './config/api'
 import { Search, Upload, Moon, Sun, Menu, X, User, MessageSquare, Zap, Activity, BarChart3, LineChart, LogOut } from 'lucide-react'
 
 function App() {
@@ -57,7 +58,7 @@ function App() {
         loginData = { username: credentialsFromModal.username, password: credentialsFromModal.password }
       }
 
-      const response = await fetch('http://localhost:8007/api/auth/login', {
+      const response = await fetch(API_CONFIG.auth.login, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loginData)
@@ -93,7 +94,7 @@ function App() {
     setIsRegistering(true)
     setRegistrationError('')
     try {
-      const response = await fetch('http://localhost:8007/api/auth/register', {
+      const response = await fetch(API_CONFIG.auth.register, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData)
@@ -137,12 +138,12 @@ function App() {
   useEffect(() => {
     const fetchChunks = async () => {
       try {
-        const response = await fetch('http://localhost:8007/api/documents')
+        const response = await fetch(API_CONFIG.documents.list)
         if (response.ok) {
           const data = await response.json()
           let totalChunks = 0
           for (const doc of data.documents) {
-            const chunksRes = await fetch(`http://localhost:8007/api/documents/${doc.id}/chunks`)
+            const chunksRes = await fetch(API_CONFIG.documents.getChunks(doc.id))
             if (chunksRes.ok) {
               const chunksData = await chunksRes.json()
               totalChunks += chunksData.count

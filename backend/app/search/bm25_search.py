@@ -6,6 +6,19 @@ import os
 from pathlib import Path
 import logging
 
+try:
+    from nltk.stem import SnowballStemmer
+    from nltk.corpus import stopwords
+    import nltk
+    # Download required NLTK data
+    try:
+        nltk.data.find('corpora/stopwords')
+    except LookupError:
+        nltk.download('stopwords', quiet=True)
+    STEMMER_AVAILABLE = True
+except ImportError:
+    STEMMER_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 class BM25SearchEngine:
@@ -21,6 +34,21 @@ class BM25SearchEngine:
         self.corpus = []  # Original texts for reference
         self.chunks = []  # Full chunk metadata
         self.tokenized_corpus = []  # Tokenized texts for BM25
+
+        # Initialize stemmer if available
+        self.stemmer = None
+        self.stop_words = set()
+        self.stemmer_available = False
+
+        if STEMMER_AVAILABLE:
+            try:
+                self.stemmer = SnowballStemmer("english")
+                self.stop_words = set(stopwords.words("english"))
+                self.stemmer_available = True
+                logger.info("BM25 enhanced with stemming and stop word removal")
+            except Exception as e:
+                logger.warning(f"Failed to initialize stemmer: {e}")
+                self.stemmer_available = False
 
         # Ensure persistence directory exists
         self.PERSISTENCE_DIR.mkdir(parents=True, exist_ok=True)
@@ -43,10 +71,9 @@ class BM25SearchEngine:
             logger.info(f"BM25 index built and persisted with {len(texts)} documents")
         except Exception as e:
             logger.warning(f"Failed to persist BM25 index: {e}. Index will be rebuilt on restart.")
-            print(f"BM25 index built with {len(texts)} documents")
 
     def _tokenize(self, text: str) -> List[str]:
-        """Simple tokenization: lowercase, split on whitespace, remove punctuation.
+        """Advanced tokenization: lowercase, remove punctuation, stemming, stop word removal.
 
         Args:
             text: Text to tokenize
@@ -58,6 +85,15 @@ class BM25SearchEngine:
         # Remove special characters but keep alphanumeric and hyphens
         text = re.sub(r'[^\w\s-]', '', text)
         tokens = text.split()
+
+        # Apply stemming and stop word removal if available
+        if self.stemmer_available and self.stemmer:
+            tokens = [
+                self.stemmer.stem(token)
+                for token in tokens
+                if token not in self.stop_words and len(token) > 2
+            ]
+
         return tokens
 
     def search(self, query: str, top_k: int = 50) -> List[Dict[str, Any]]:

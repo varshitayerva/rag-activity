@@ -1,10 +1,13 @@
 """In-memory vector store using sentence-transformers with offline fallback."""
 
 import os
+import logging
 import numpy as np
 from typing import List, Dict, Any
 from pathlib import Path
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 # Load .env file
 load_dotenv()
@@ -60,17 +63,17 @@ class VectorStore:
 
         if HAS_TRANSFORMERS:
             try:
-                print(f"Loading embedding model: {model_name}...")
+                logger.info(f"Loading embedding model: {model_name}...")
                 self.model = SentenceTransformer(model_name)
                 self.embedding_dim = self.model.get_sentence_embedding_dimension()
-                print(f"Model loaded. Embedding dimension: {self.embedding_dim}")
+                logger.info(f"Model loaded. Embedding dimension: {self.embedding_dim}")
             except Exception as e:
-                print(f"Could not load transformer model: {e}")
-                print("Using simple embedding fallback...")
+                logger.warning(f"Could not load transformer model: {e}")
+                logger.warning("Using simple embedding fallback...")
                 self.model = SimpleEmbedding()
                 self.use_simple = True
         else:
-            print("sentence-transformers not available, using simple embedding")
+            logger.warning("sentence-transformers not available, using simple embedding")
             self.model = SimpleEmbedding()
             self.use_simple = True
 
@@ -79,7 +82,7 @@ class VectorStore:
         if not texts:
             return
 
-        print(f"Embedding {len(texts)} chunks...")
+        logger.info(f"Embedding {len(texts)} chunks...")
 
         if self.use_simple or isinstance(self.model, SimpleEmbedding):
             embeddings = self.model.encode(texts)
@@ -90,7 +93,7 @@ class VectorStore:
             self.vectors.append(emb)
             self.metadata.append(meta)
 
-        print(f"Added {len(texts)} chunks to vector store")
+        logger.info(f"Added {len(texts)} chunks to vector store")
 
     def search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """Search similar texts."""

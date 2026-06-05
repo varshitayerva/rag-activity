@@ -36,20 +36,31 @@ class RRFFusion:
     def fuse(vector_results: List[Dict[str, Any]],
              bm25_results: List[Dict[str, Any]],
              k: int = None,
-             corpus_size: int = None) -> List[Dict[str, Any]]:
-        """Fuse vector search and BM25 results using RRF.
+             corpus_size: int = None,
+             vector_weight: float = 0.5,
+             bm25_weight: float = 0.5) -> List[Dict[str, Any]]:
+        """Fuse vector search and BM25 results using Weighted RRF.
 
-        Formula: score = 1/(k + rank_vector) + 1/(k + rank_bm25)
+        Formula: score = vector_weight * 1/(k + rank_vector) + bm25_weight * 1/(k + rank_bm25)
 
         Args:
             vector_results: Results from vector search (with 'rank', 'score', 'text')
             bm25_results: Results from BM25 search (with 'rank', 'score', 'text')
             k: RRF parameter (if None, auto-detect from corpus_size)
             corpus_size: Size of corpus for k auto-detection
+            vector_weight: Weight for vector search (default 0.5 for backward compatibility)
+            bm25_weight: Weight for BM25 search (default 0.5 for backward compatibility)
 
         Returns:
-            Fused results sorted by combined RRF score
+            Fused results sorted by combined weighted RRF score
         """
+        # Validate weights sum to ~1.0 (allow small tolerance)
+        total_weight = vector_weight + bm25_weight
+        if abs(total_weight - 1.0) > 0.01:
+            logger.warning(f"Weights don't sum to 1.0 (total: {total_weight}). Normalizing...")
+            vector_weight = vector_weight / total_weight
+            bm25_weight = bm25_weight / total_weight
+
         # Auto-detect k if not provided
         if k is None:
             if corpus_size is None:
@@ -82,10 +93,13 @@ class RRFFusion:
             rrf_scores[text]['bm25_relevance'] = result['score']
             rrf_scores[text]['from_bm25'] = True
 
-        # Calculate combined RRF scores while preserving metadata
+        # Calculate weighted combined RRF scores while preserving metadata
         combined_results = []
         for text, scores in rrf_scores.items():
-            combined_score = scores.get('vector_score', 0) + scores.get('bm25_score', 0)
+            # Apply weights to individual scores then combine
+            vector_component = (scores.get('vector_score', 0) * vector_weight) if scores.get('from_vector') else 0
+            bm25_component = (scores.get('bm25_score', 0) * bm25_weight) if scores.get('from_bm25') else 0
+            combined_score = vector_component + bm25_component
 
             # Get metadata from either vector or BM25 result
             metadata = {}

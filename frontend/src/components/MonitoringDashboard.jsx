@@ -17,13 +17,13 @@ export function MonitoringDashboard({ apiKey }) {
   const fetchData = async () => {
     try {
       const [metricsRes, alertsRes, healthRes] = await Promise.all([
-        fetch('http://localhost:8007/api/monitoring/metrics', {
+        fetch(API_CONFIG.monitoring.metrics, {
           headers: { 'X-API-Key': apiKey }
         }).then(r => r.json()),
-        fetch('http://localhost:8007/api/alerts/status', {
+        fetch(API_CONFIG.monitoring.alerts, {
           headers: { 'X-API-Key': apiKey }
         }).then(r => r.json()),
-        fetch('http://localhost:8007/api/health/detailed', {
+        fetch(API_CONFIG.metrics.health, {
           headers: { 'X-API-Key': apiKey }
         }).then(r => r.json())
       ])

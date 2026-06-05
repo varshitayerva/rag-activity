@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { User, Mail, Building2, Shield, LogIn, Copy, Check, Edit2, Save, X } from 'lucide-react'
+import { API_CONFIG } from '../config/api'
 
 export function UserProfile({ apiKey }) {
   const [profile, setProfile] = useState(null)
@@ -14,7 +15,7 @@ export function UserProfile({ apiKey }) {
     const fetchProfile = async () => {
       try {
         // Fetch profile
-        const profileRes = await fetch('http://localhost:8007/api/auth/profile', {
+        const profileRes = await fetch(API_CONFIG.auth.profile, {
           headers: { 'X-API-Key': apiKey }
         })
         if (profileRes.ok) {
@@ -31,7 +32,7 @@ export function UserProfile({ apiKey }) {
 
         // Fetch stats (optional - don't fail if it doesn't exist)
         try {
-          const statsRes = await fetch('http://localhost:8007/api/user/stats', {
+          const statsRes = await fetch(API_CONFIG.user.stats, {
             headers: { 'X-API-Key': apiKey }
           })
           if (statsRes.ok) {
@@ -79,7 +80,7 @@ export function UserProfile({ apiKey }) {
   const handleSave = async () => {
     setSaving(true)
     try {
-      const response = await fetch('http://localhost:8007/api/auth/profile', {
+      const response = await fetch(API_CONFIG.auth.profile, {
         method: 'PUT',
         headers: {
           'X-API-Key': apiKey,
