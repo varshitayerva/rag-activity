@@ -245,6 +245,16 @@ class HybridSearchService:
                 )
                 latency['metadata_boost_ms'] = int((time.time() - boost_start) * 1000)
 
+            # Stage 7.5: Semantic Coherence Check (Hallucination Control - NEW)
+            with tracer.trace("semantic_coherence_check"):
+                coherence_start = time.time()
+                if filtered_results:
+                    coherence_info = self._check_semantic_coherence(filtered_results)
+                    for result in filtered_results:
+                        result['coherence_score'] = coherence_info['coherence_score']
+                    logger.debug(f"Semantic coherence: {coherence_info['coherence_score']:.3f} - {'COHERENT' if coherence_info['is_coherent'] else 'INCOHERENT'}")
+                latency['coherence_check_ms'] = int((time.time() - coherence_start) * 1000)
+
             # Stage 8: PHASE 6 - Answer-Aware Ranking (6.1 - MANDATORY)
             with tracer.trace("answer_aware_ranking"):
                 answer_rank_start = time.time()
@@ -527,6 +537,46 @@ class HybridSearchService:
         )
 
         return confidence
+
+    def _check_semantic_coherence(self, results: List[Dict]) -> Dict[str, Any]:
+        """Check if retrieved results are semantically coherent (about same topic).
+
+        High coherence = results are about the same topic (good).
+        Low coherence = results are scattered (possible hallucination risk).
+
+        Returns:
+            Dict with coherence_score (0-1) and is_coherent flag.
+        """
+        if len(results) < 2:
+            return {'is_coherent': True, 'coherence_score': 1.0}
+
+        scores = [result.get('vector_score', result.get('score', 0)) for result in results]
+
+        if not scores:
+            return {'is_coherent': True, 'coherence_score': 0.5}
+
+        avg_score = sum(scores) / len(scores)
+        variance = sum((x - avg_score) ** 2 for x in scores) / len(scores)
+        std_dev = variance ** 0.5
+
+        if avg_score == 0:
+            coherence_score = 0.5
+        else:
+            coherence_score = max(0, 1 - (std_dev / avg_score))
+
+        is_coherent = coherence_score > 0.6
+
+        logger.debug(
+            f"Coherence check: avg_score={avg_score:.3f}, "
+            f"std_dev={std_dev:.3f}, coherence_score={coherence_score:.3f}"
+        )
+
+        return {
+            'is_coherent': is_coherent,
+            'coherence_score': round(coherence_score, 3),
+            'avg_score': round(avg_score, 3),
+            'std_dev': round(std_dev, 3)
+        }
 
     def get_index_stats(self) -> Dict[str, Any]:
         """Get statistics about indexed data."""

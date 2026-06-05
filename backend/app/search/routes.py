@@ -229,9 +229,10 @@ async def generate(
     category: str = None,
     dateFrom: str = None,
     dateTo: str = None,
-    stream: bool = False
+    stream: bool = False,
+    confidence_threshold: float = 0.5
 ):
-    """Search and generate LLM answer using Groq with hybrid search."""
+    """Search and generate LLM answer with hallucination controls."""
     if not query or len(query.strip()) == 0:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
@@ -252,13 +253,16 @@ async def generate(
         results = search_result.get('chunks', [])
         confidence_score = search_result.get('confidence_score', 0.0)
 
-        if not results:
+        if not results or confidence_score < confidence_threshold:
             return {
                 "query": query,
-                "answer": "No relevant documents found. Please refine your search query.",
+                "answer": "I don't have reliable information to answer this question. Please refine your search or consult the documentation directly.",
                 "sources": [],
-                "confidence_score": 0.0,
-                "latency_ms": int((time.time() - start_time) * 1000)
+                "confidence_score": confidence_score,
+                "hallucination_risk": 1.0,
+                "risk_level": "HIGH",
+                "latency_ms": int((time.time() - start_time) * 1000),
+                "warning": f"Confidence score ({confidence_score:.2f}) below threshold ({confidence_threshold})"
             }
 
         if stream:
@@ -268,14 +272,16 @@ async def generate(
 
             return StreamingResponse(generate_stream(), media_type="text/event-stream")
 
-        answer = generate_answer(query, results)
+        generation_result = generate_answer(query, results)
         latency_ms = int((time.time() - start_time) * 1000)
 
         response = {
             "query": query,
-            "answer": answer,
+            "answer": generation_result.get('answer'),
             "sources": results[:3],
             "confidence_score": confidence_score,
+            "hallucination_risk": generation_result.get('hallucination_risk', 0.0),
+            "risk_level": generation_result.get('risk_level', 'LOW'),
             "latency_ms": latency_ms,
             "result_count": len(results)
         }
@@ -283,7 +289,7 @@ async def generate(
         MetricsCollector.record_latency(latency_ms)
         MetricsCollector.record_embedding_hit()
         MetricsCollector.record_retrieval_hit() if results else MetricsCollector.record_retrieval_miss()
-        MetricsCollector.record_tokens(len(query.split()), len(answer.split()))
+        MetricsCollector.record_tokens(len(query.split()), len(generation_result.get('answer', '').split()))
 
         return response
 
