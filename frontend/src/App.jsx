@@ -30,6 +30,7 @@ function App() {
   const [tempApiKey, setTempApiKey] = useState('')
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail') || '')
+  const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || 'user')
   const [showPassword, setShowPassword] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showApiInfo, setShowApiInfo] = useState(false)
@@ -48,13 +49,23 @@ function App() {
     setLoginError('')
     try {
       let loginData = {}
+      let role = 'user'
 
-      // Check if it's an API key (string) or username/password (object)
-      if (typeof credentialsFromModal === 'string') {
-        // API key login
+      // Check if it's admin or user login
+      if (credentialsFromModal.role === 'admin') {
+        role = 'admin'
+        if (credentialsFromModal.adminApiKey) {
+          // Admin API key login
+          loginData = { admin_api_key: credentialsFromModal.adminApiKey, role: 'admin' }
+        } else {
+          // Admin ID & password login
+          loginData = { admin_id: credentialsFromModal.adminId, admin_password: credentialsFromModal.adminPassword, role: 'admin' }
+        }
+      } else if (typeof credentialsFromModal === 'string') {
+        // User API key login
         loginData = { api_key: credentialsFromModal }
       } else if (typeof credentialsFromModal === 'object') {
-        // Username/password login
+        // User username/password login
         loginData = { username: credentialsFromModal.username, password: credentialsFromModal.password }
       }
 
@@ -67,9 +78,11 @@ function App() {
       if (response.ok) {
         const data = await response.json()
         setApiKey(data.api_key)
-        setUserEmail(data.email)
+        setUserEmail(data.email || 'Admin')
+        setUserRole(role)
         localStorage.setItem('apiKey', data.api_key)
-        localStorage.setItem('userEmail', data.email)
+        localStorage.setItem('userEmail', data.email || 'Admin')
+        localStorage.setItem('userRole', role)
         setShowLoginModal(false)
         setTempApiKey('')
       } else {
@@ -85,8 +98,10 @@ function App() {
   const handleLogout = () => {
     setApiKey('')
     setUserEmail('')
+    setUserRole('user')
     localStorage.removeItem('apiKey')
     localStorage.removeItem('userEmail')
+    localStorage.removeItem('userRole')
     setShowLoginModal(true)
   }
 
@@ -177,9 +192,12 @@ function App() {
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'feedback', label: 'Feedback', icon: MessageSquare },
     { id: 'cache', label: 'Cache', icon: Zap },
-    { id: 'monitoring', label: 'Monitoring', icon: Activity },
-    { id: 'admin', label: 'Admin', icon: BarChart3 },
-    { id: 'stats', label: 'My Stats', icon: LineChart },
+    ...(userRole === 'admin' ? [
+      { id: 'monitoring', label: 'Monitoring', icon: Activity },
+      { id: 'admin', label: 'Admin', icon: BarChart3 },
+    ] : [
+      { id: 'stats', label: 'My Stats', icon: LineChart },
+    ]),
   ]
 
   if (showLoginModal) {
@@ -216,7 +234,7 @@ function App() {
           <div className="flex items-center gap-4">
             <div className="text-right">
               <p className="text-sm text-blue-100">{userEmail || 'Demo User'}</p>
-              <p className="text-xs text-blue-200">Logged in</p>
+              <p className="text-xs text-blue-200">{userRole === 'admin' ? 'Admin' : 'User'} • Logged in</p>
             </div>
             <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-full p-1 border border-white/20">
               <button
@@ -368,7 +386,7 @@ function App() {
             {view === 'profile' && (
               <div className="h-full overflow-y-auto p-8">
                 <div className="max-w-4xl mx-auto">
-                  <UserProfile apiKey={apiKey} />
+                  <UserProfile apiKey={apiKey} userRole={userRole} />
                 </div>
               </div>
             )}
@@ -400,14 +418,14 @@ function App() {
             {view === 'admin' && (
               <div className="h-full overflow-y-auto p-8">
                 <div className="max-w-6xl mx-auto">
-                  <AdminDashboard />
+                  <AdminDashboard apiKey={apiKey} />
                 </div>
               </div>
             )}
 
             {view === 'stats' && (
               <div className="h-full overflow-y-auto">
-                <UserStatsDashboard />
+                <UserStatsDashboard apiKey={apiKey} />
               </div>
             )}
           </div>

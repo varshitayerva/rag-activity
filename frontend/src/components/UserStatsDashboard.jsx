@@ -2,18 +2,28 @@ import { useState, useEffect } from 'react'
 import { User, Search, Zap, Calendar, TrendingUp } from 'lucide-react'
 import { API_CONFIG } from '../config/api'
 
-export function UserStatsDashboard() {
+export function UserStatsDashboard({ apiKey = '' }) {
   const [userStats, setUserStats] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchUserStats = async () => {
       try {
-        const response = await fetch(API_CONFIG.user.stats, {
-          headers: { 'X-API-Key': 'sk-demo-key-12345' }
+        const response = await fetch(API_CONFIG.auth.profile, {
+          headers: { 'X-API-Key': apiKey }
         })
-        const data = await response.json()
-        setUserStats(data.stats)
+        if (response.ok) {
+          const data = await response.json()
+          const user = data.user || data
+          setUserStats({
+            username: user.username,
+            role: user.role,
+            department: user.department,
+            email: user.email,
+            created_at: user.created_at,
+            last_login: user.last_login
+          })
+        }
       } catch (error) {
         console.error('Failed to fetch user stats:', error)
       } finally {
@@ -21,10 +31,12 @@ export function UserStatsDashboard() {
       }
     }
 
-    fetchUserStats()
-    const interval = setInterval(fetchUserStats, 10000)
-    return () => clearInterval(interval)
-  }, [])
+    if (apiKey) {
+      fetchUserStats()
+      const interval = setInterval(fetchUserStats, 30000)
+      return () => clearInterval(interval)
+    }
+  }, [apiKey])
 
   if (loading) return <div className="text-center py-8">Loading user stats...</div>
 
