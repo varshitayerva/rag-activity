@@ -14,6 +14,7 @@ export const API_CONFIG = {
     login: `${API_BASE_URL}/api/auth/login`,
     register: `${API_BASE_URL}/api/auth/register`,
     profile: `${API_BASE_URL}/api/auth/profile`,
+    admin_profile: `${API_BASE_URL}/api/auth/admin/profile`,
   },
 
   // Search endpoints
@@ -57,6 +58,11 @@ export const API_CONFIG = {
   // User endpoints
   user: {
     stats: `${API_BASE_URL}/api/user/stats`,
+  },
+
+  // Admin endpoints
+  admin: {
+    users: `${API_BASE_URL}/api/auth/admin/users`,
   },
 };
 

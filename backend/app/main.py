@@ -7,15 +7,27 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.app.search.routes import router as search_router
-from backend.app.search.ingest_routes import router as ingest_router
-from backend.app.search.feedback_routes import router as feedback_router
-from backend.app.api.metrics import router as metrics_router
-from backend.app.api.features_routes import router as features_router
-from backend.app.api.auth_routes import router as auth_router
-from backend.app.webhooks.routes import router as webhook_router
-from backend.app.logging_config import setup_logging
-from backend.app.database.postgres import db_client
+
+try:
+    from backend.app.search.routes import router as search_router
+    from backend.app.search.ingest_routes import router as ingest_router
+    from backend.app.search.feedback_routes import router as feedback_router
+    from backend.app.api.metrics import router as metrics_router
+    from backend.app.api.features_routes import router as features_router
+    from backend.app.api.auth_routes import router as auth_router
+    from backend.app.webhooks.routes import router as webhook_router
+    from backend.app.logging_config import setup_logging
+    from backend.app.database.postgres import db_client
+except ImportError:
+    from app.search.routes import router as search_router
+    from app.search.ingest_routes import router as ingest_router
+    from app.search.feedback_routes import router as feedback_router
+    from app.api.metrics import router as metrics_router
+    from app.api.features_routes import router as features_router
+    from app.api.auth_routes import router as auth_router
+    from app.webhooks.routes import router as webhook_router
+    from app.logging_config import setup_logging
+    from app.database.postgres import db_client
 
 logger = logging.getLogger(__name__)
 setup_logging()

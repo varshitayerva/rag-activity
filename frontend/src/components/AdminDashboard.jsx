@@ -1,167 +1,259 @@
 import { useState, useEffect } from 'react'
-import { BarChart3, Users, AlertCircle, Zap, TrendingUp } from 'lucide-react'
+import { Users, Trash2, Shield, CheckCircle, AlertCircle, UserPlus, Lock } from 'lucide-react'
 import { API_CONFIG } from '../config/api'
 
-export function AdminDashboard() {
-  const [stats, setStats] = useState(null)
-  const [feedbackStats, setFeedbackStats] = useState(null)
-  const [health, setHealth] = useState(null)
+export function AdminDashboard({ apiKey }) {
+  const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('all')
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [statsRes, feedbackRes, healthRes] = await Promise.all([
-          fetch(API_CONFIG.metrics.main).then(r => r.json()),
-          fetch(API_CONFIG.feedback.submit).then(r => r.json()),
-          fetch(API_CONFIG.metrics.health).then(r => r.json()),
-        ])
-        setStats(statsRes)
-        setFeedbackStats(feedbackRes)
-        setHealth(healthRes)
-      } catch (error) {
-        console.error('Failed to fetch dashboard data:', error)
-      } finally {
-        setLoading(false)
-      }
+    if (apiKey) {
+      fetchUsers()
+      const interval = setInterval(fetchUsers, 10000)
+      return () => clearInterval(interval)
     }
+  }, [apiKey])
 
-    fetchData()
-    const interval = setInterval(fetchData, 5000)
-    return () => clearInterval(interval)
-  }, [])
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch(API_CONFIG.admin.users, {
+        headers: { 'X-API-Key': apiKey }
+      })
 
-  if (loading) return <div className="text-center py-8">Loading dashboard...</div>
+      if (res.ok) {
+        const data = await res.json()
+        setUsers(data.users || [])
+      } else {
+        console.error('Failed to fetch users:', res.status)
+        setUsers([])
+      }
+    } catch (error) {
+      console.error('Failed to fetch users:', error)
+      setUsers([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  const healthScore = health?.health?.health_score || 0
-  const healthColor = healthScore >= 80 ? 'text-green-500' : healthScore >= 60 ? 'text-yellow-500' : 'text-red-500'
+  const filteredUsers = users.filter(user => {
+    if (filter === 'active') return user.recently_active
+    if (filter === 'inactive') return !user.recently_active
+    return true
+  })
+
+  const stats = {
+    total_users: users.length,
+    active_users: users.filter(u => u.recently_active).length,
+    inactive_users: users.filter(u => !u.recently_active).length
+  }
+
+  if (loading) return <div className="text-center py-8 text-gray-400">Loading users...</div>
 
   return (
-    <div className="p-6 bg-gradient-to-br from-gray-900 to-gray-800 text-white min-h-screen">
-      <h1 className="text-4xl font-bold mb-8 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-        Admin Dashboard
-      </h1>
-
-      {/* Health Status */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-gray-700/50 rounded-lg p-6 border border-gray-600">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400 mb-2">System Health</p>
-              <p className={`text-4xl font-bold ${healthColor}`}>{healthScore}</p>
-              <p className="text-xs text-gray-400 mt-1">{health?.health?.status}</p>
-            </div>
-            <TrendingUp className={`w-10 h-10 ${healthColor}`} />
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-red-600 to-orange-600 rounded-lg p-8 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">User Management</h1>
+            <p className="text-red-100">Manage system users and permissions</p>
           </div>
-        </div>
-
-        <div className="bg-gray-700/50 rounded-lg p-6 border border-gray-600">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400 mb-2">Total Queries</p>
-              <p className="text-4xl font-bold text-blue-400">{stats?.total_queries || 0}</p>
-            </div>
-            <Zap className="w-10 h-10 text-blue-400" />
-          </div>
-        </div>
-
-        <div className="bg-gray-700/50 rounded-lg p-6 border border-gray-600">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400 mb-2">Avg Latency</p>
-              <p className="text-4xl font-bold text-purple-400">{stats?.avg_latency_ms?.toFixed(0) || 0}ms</p>
-            </div>
-            <BarChart3 className="w-10 h-10 text-purple-400" />
-          </div>
-        </div>
-
-        <div className="bg-gray-700/50 rounded-lg p-6 border border-gray-600">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400 mb-2">Active Alerts</p>
-              <p className="text-4xl font-bold text-red-400">{health?.alerts?.active_count || 0}</p>
-            </div>
-            <AlertCircle className="w-10 h-10 text-red-400" />
-          </div>
+          <Users size={48} className="opacity-80" />
         </div>
       </div>
 
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        {/* Cache Performance */}
-        <div className="bg-gray-700/50 rounded-lg p-6 border border-gray-600">
-          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <Zap className="text-yellow-400" />
-            Cache Performance
-          </h2>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-300">Hit Rate</span>
-              <span className="text-green-400 font-bold">{(stats?.cache_hit_rate * 100).toFixed(1)}%</span>
-            </div>
-            <div className="w-full bg-gray-600 rounded-full h-2">
-              <div className="bg-green-500 h-2 rounded-full" style={{width: `${stats?.cache_hit_rate * 100}%`}}></div>
-            </div>
-            <div className="flex justify-between text-sm text-gray-400 mt-4">
-              <span>Hits: {stats?.embedding_cache_hits || 0}</span>
-              <span>Misses: {stats?.embedding_cache_misses || 0}</span>
-            </div>
-          </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white dark:bg-gray-700 rounded-lg shadow p-6">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Total Users</p>
+          <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">
+            {stats.total_users}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Registered accounts</p>
         </div>
 
-        {/* Feedback Quality */}
-        <div className="bg-gray-700/50 rounded-lg p-6 border border-gray-600">
-          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <Users className="text-blue-400" />
-            Feedback Quality
-          </h2>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-300">Avg Rating</span>
-              <span className="text-blue-400 font-bold">{feedbackStats?.stats?.avg_rating || 0}/5</span>
-            </div>
-            <div className="w-full bg-gray-600 rounded-full h-2">
-              <div className="bg-blue-500 h-2 rounded-full" style={{width: `${(feedbackStats?.stats?.avg_rating / 5) * 100}%`}}></div>
-            </div>
-            <div className="flex justify-between text-sm text-gray-400 mt-4">
-              <span>Total: {feedbackStats?.stats?.total_feedback || 0}</span>
-              <span>Quality: {feedbackStats?.stats?.quality_score || 'N/A'}</span>
-            </div>
-          </div>
+        <div className="bg-white dark:bg-gray-700 rounded-lg shadow p-6">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Active Users</p>
+          <p className="text-4xl font-bold text-green-600 dark:text-green-400">
+            {stats.active_users}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Logged in users</p>
+        </div>
+
+        <div className="bg-white dark:bg-gray-700 rounded-lg shadow p-6">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Inactive Users</p>
+          <p className="text-4xl font-bold text-orange-600 dark:text-orange-400">
+            {stats.inactive_users}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Disabled accounts</p>
         </div>
       </div>
 
-      {/* Active Alerts */}
-      {health?.alerts?.triggered_alerts && health.alerts.triggered_alerts.length > 0 && (
-        <div className="bg-red-900/30 border border-red-600 rounded-lg p-6 mb-8">
-          <h2 className="text-xl font-bold mb-4 text-red-400">🚨 Active Alerts</h2>
-          <div className="space-y-2">
-            {health.alerts.triggered_alerts.map((alert, idx) => (
-              <div key={idx} className="flex items-center justify-between bg-gray-700/50 p-3 rounded">
-                <span className="text-gray-200">{alert.name}</span>
-                <span className="text-red-400 text-sm">{alert.metric}</span>
-              </div>
-            ))}
-          </div>
+      {/* Filter & Search */}
+      <div className="bg-white dark:bg-gray-700 rounded-lg shadow p-6">
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-4 py-2 rounded-lg font-semibold transition ${
+              filter === 'all'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white'
+            }`}
+          >
+            All Users
+          </button>
+          <button
+            onClick={() => setFilter('active')}
+            className={`px-4 py-2 rounded-lg font-semibold transition ${
+              filter === 'active'
+                ? 'bg-green-600 text-white'
+                : 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white'
+            }`}
+          >
+            Active
+          </button>
+          <button
+            onClick={() => setFilter('inactive')}
+            className={`px-4 py-2 rounded-lg font-semibold transition ${
+              filter === 'inactive'
+                ? 'bg-orange-600 text-white'
+                : 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white'
+            }`}
+          >
+            Inactive
+          </button>
         </div>
-      )}
 
-      {/* Rating Distribution */}
-      {feedbackStats?.stats?.distribution && (
-        <div className="bg-gray-700/50 rounded-lg p-6 border border-gray-600">
-          <h2 className="text-xl font-bold mb-6">Rating Distribution</h2>
-          <div className="flex items-end gap-4 h-40">
-            {[5, 4, 3, 2, 1].map(rating => (
-              <div key={rating} className="flex-1 flex flex-col items-center">
-                <div className="w-full bg-gradient-to-t from-blue-500 to-purple-500 rounded-t"
-                     style={{height: `${(feedbackStats.stats.distribution[rating] / Math.max(1, ...Object.values(feedbackStats.stats.distribution))) * 100}px`}}>
-                </div>
-                <p className="text-sm text-gray-400 mt-2">{rating}⭐ ({feedbackStats.stats.distribution[rating]})</p>
-              </div>
-            ))}
-          </div>
+        {/* Users Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-gray-300 dark:border-gray-600">
+                <th className="px-4 py-3 text-gray-700 dark:text-gray-300 font-semibold">Username</th>
+                <th className="px-4 py-3 text-gray-700 dark:text-gray-300 font-semibold">Email</th>
+                <th className="px-4 py-3 text-gray-700 dark:text-gray-300 font-semibold">Department</th>
+                <th className="px-4 py-3 text-gray-700 dark:text-gray-300 font-semibold">Status</th>
+                <th className="px-4 py-3 text-gray-700 dark:text-gray-300 font-semibold">Joined</th>
+                <th className="px-4 py-3 text-gray-700 dark:text-gray-300 font-semibold">Last Login</th>
+                <th className="px-4 py-3 text-gray-700 dark:text-gray-300 font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="text-center py-8 text-gray-500">
+                    No users found
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map((user) => (
+                  <tr
+                    key={user.id}
+                    className="border-b border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600/50 transition"
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                          {user.username[0].toUpperCase()}
+                        </div>
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {user.username}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{user.email}</td>
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                      {user.department || 'N/A'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        {user.recently_active ? (
+                          <>
+                            <CheckCircle size={18} className="text-green-500" />
+                            <span className="text-green-600 dark:text-green-400 text-sm font-semibold">
+                              Active (last 24h)
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle size={18} className="text-orange-500" />
+                            <span className="text-orange-600 dark:text-orange-400 text-sm font-semibold">
+                              Inactive
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300 text-sm">
+                      {new Date(user.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300 text-sm">
+                      {user.last_login
+                        ? new Date(user.last_login).toLocaleDateString()
+                        : 'Never'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <button
+                          title={user.is_active ? 'Disable user' : 'Enable user'}
+                          className="p-2 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded transition text-orange-600 dark:text-orange-400"
+                        >
+                          <Lock size={18} />
+                        </button>
+                        <button
+                          title="Delete user"
+                          className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition text-red-600 dark:text-red-400"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
+
+      {/* System Controls */}
+      <div className="bg-white dark:bg-gray-700 rounded-lg shadow p-6">
+        <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">System Controls</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button className="flex items-center gap-3 p-4 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-lg transition">
+            <Shield className="text-blue-600 dark:text-blue-400" size={24} />
+            <div className="text-left">
+              <p className="font-semibold text-gray-900 dark:text-white">Reset API Keys</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Invalidate all user API keys</p>
+            </div>
+          </button>
+
+          <button className="flex items-center gap-3 p-4 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-lg transition">
+            <UserPlus className="text-green-600 dark:text-green-400" size={24} />
+            <div className="text-left">
+              <p className="font-semibold text-gray-900 dark:text-white">Clear Cache</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Clear all system caches</p>
+            </div>
+          </button>
+
+          <button className="flex items-center gap-3 p-4 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-lg transition">
+            <AlertCircle className="text-orange-600 dark:text-orange-400" size={24} />
+            <div className="text-left">
+              <p className="font-semibold text-gray-900 dark:text-white">System Settings</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Configure system parameters</p>
+            </div>
+          </button>
+
+          <button className="flex items-center gap-3 p-4 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded-lg transition">
+            <Lock className="text-red-600 dark:text-red-400" size={24} />
+            <div className="text-left">
+              <p className="font-semibold text-gray-900 dark:text-white">Maintenance Mode</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Enable system maintenance</p>
+            </div>
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
