@@ -128,3 +128,21 @@ CREATE TABLE IF NOT EXISTS query_feedback (
 CREATE INDEX IF NOT EXISTS idx_query_feedback_query_id ON query_feedback(query_id);
 CREATE INDEX IF NOT EXISTS idx_query_feedback_rating ON query_feedback(rating);
 CREATE INDEX IF NOT EXISTS idx_query_feedback_created_at ON query_feedback(created_at);
+
+-- Admins table for admin authentication
+CREATE TABLE IF NOT EXISTS admins (
+    id SERIAL PRIMARY KEY,
+    admin_id VARCHAR(100) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255),
+    admin_api_key VARCHAR(255) NOT NULL UNIQUE,
+    role VARCHAR(50) DEFAULT 'admin',
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_admins_admin_id ON admins(admin_id);
+CREATE INDEX IF NOT EXISTS idx_admins_admin_api_key ON admins(admin_api_key);
+CREATE INDEX IF NOT EXISTS idx_admins_email ON admins(email);

@@ -16,6 +16,11 @@ VALID_API_KEYS = [
     os.getenv('API_KEY_2', 'sk-demo-key-67890'),
 ]
 
+VALID_ADMIN_API_KEYS = [
+    os.getenv('ADMIN_API_KEY_1', 'admin-sk-key-12345'),
+    os.getenv('ADMIN_API_KEY_2', 'admin-sk-key-67890'),
+]
+
 def generate_api_key(length: int = 32) -> str:
     """Generate a secure API key."""
     charset = string.ascii_letters + string.digits + '-'
@@ -57,6 +62,38 @@ def verify_api_key(request: Request) -> str:
     logger.warning(f"Invalid API key from {request.client.host}: {api_key[:10]}...")
     raise HTTPException(status_code=401, detail="Invalid API key")
 
+
+def verify_admin_api_key(request: Request) -> str:
+    """Verify admin API key from request header."""
+    from backend.app.database.postgres import db_client
+
+    api_key = request.headers.get("X-API-Key")
+
+    if not api_key:
+        logger.warning(f"Request from {request.client.host} without API key")
+        raise HTTPException(status_code=401, detail="Missing API key")
+
+    # Check demo admin keys first
+    if api_key in VALID_ADMIN_API_KEYS:
+        return api_key
+
+    # Check database for admin's API key
+    try:
+        with db_client.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id FROM admins
+                WHERE admin_api_key = %s AND is_active = true
+            """, (api_key,))
+            result = cursor.fetchone()
+            if result:
+                return api_key
+    except Exception as e:
+        logger.error(f"Error verifying admin API key in database: {str(e)}")
+
+    logger.warning(f"Invalid admin API key from {request.client.host}: {api_key[:10]}...")
+    raise HTTPException(status_code=401, detail="Invalid admin API key")
+
 def check_rate_limit(api_key: str) -> bool:
     """Check if API key has exceeded rate limit."""
     current_time = time.time()
@@ -86,6 +123,20 @@ async def require_auth(request: Request):
 
     if not check_rate_limit(api_key):
         logger.warning(f"Rate limit rejected for {api_key[:10]}...")
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded: {RATE_LIMIT_REQUESTS} requests per {RATE_LIMIT_WINDOW}s"
+        )
+
+    return api_key
+
+
+async def require_admin_auth(request: Request):
+    """Dependency for protecting admin endpoints."""
+    api_key = verify_admin_api_key(request)
+
+    if not check_rate_limit(api_key):
+        logger.warning(f"Rate limit rejected for admin {api_key[:10]}...")
         raise HTTPException(
             status_code=429,
             detail=f"Rate limit exceeded: {RATE_LIMIT_REQUESTS} requests per {RATE_LIMIT_WINDOW}s"

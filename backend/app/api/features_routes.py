@@ -28,10 +28,49 @@ async def get_user_profile(api_key: str = Depends(require_auth)):
 
 @router.get("/user/stats")
 async def get_user_stats(api_key: str = Depends(require_auth)):
-    """Get user statistics."""
-    return {
-        "stats": user_manager.get_user_stats(api_key)
-    }
+    """Get user statistics from database."""
+    try:
+        from backend.app.database.postgres import db_client
+        with db_client.get_connection() as conn:
+            cursor = conn.cursor()
+            # Get user ID from API key
+            cursor.execute("""
+                SELECT id, username, department, role
+                FROM users WHERE api_key = %s AND is_active = true
+            """, (api_key,))
+            user = cursor.fetchone()
+
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            user_id = user[0]
+
+            # Get user's query count (if search_queries table has user_id column)
+            search_count = 0
+            try:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM search_queries WHERE user_id = %s
+                """, (user_id,))
+                search_count = cursor.fetchone()[0] or 0
+            except Exception as e:
+                logger.warning(f"Could not query search_queries with user_id: {e}. Using 0 count.")
+                search_count = 0
+
+            return {
+                "stats": {
+                    "username": user[1],
+                    "department": user[2],
+                    "role": user[3],
+                    "search_count": search_count,
+                    "generation_count": 0,
+                    "total_queries": search_count,
+                }
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get user stats error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.post("/user/create")
 async def create_user(
