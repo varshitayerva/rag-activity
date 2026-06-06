@@ -1,4 +1,9 @@
 import os
+from dotenv import load_dotenv
+
+# Load .env file before importing anything else
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +19,7 @@ from backend.app.database.postgres import db_client
 
 logger = logging.getLogger(__name__)
 setup_logging()
+
 
 # CORS configuration - explicitly set allowed origins
 ALLOWED_ORIGINS = [

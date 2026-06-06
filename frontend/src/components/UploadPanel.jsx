@@ -95,6 +95,10 @@ export function UploadPanel({ onUploadSuccess }) {
               <option value="DevOps">DevOps</option>
               <option value="Network">Network</option>
               <option value="Security">Security</option>
+              <option value="Development">Development</option>
+              <option value="Data Analytics">Data Analytics</option>
+              <option value="QA/Testing">QA/Testing</option>
+              <option value="IT Management">Management</option>
             </select>
           </div>
 
@@ -113,6 +117,10 @@ export function UploadPanel({ onUploadSuccess }) {
               <option value="Setup">Setup</option>
               <option value="API">API</option>
               <option value="FAQ">FAQ</option>
+              <option value="How-to Guide">How-to Guide</option>
+              <option value="Glossary">Glossary</option>
+              <option value="Migration">Migration</option>
+              <option value="Deployment">Deployment</option>
             </select>
           </div>
         </div>

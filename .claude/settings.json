@@ -280,7 +280,9 @@
       "Bash(python3 -m py_compile /c/Users/rohan.urmude/Desktop/FDE/rag/rag-activity/backend/app/search/hybrid_search.py)",
       "Bash(python3 -c \"import backend.app.search.hybrid_search\")",
       "Bash(curl -X POST http://localhost:8000/api/login -H \"Content-Type: application/json\" -d '{\"username\":\"Ram\",\"password\":\"password\"}')",
-      "Bash(curl -X POST http://localhost:8000/api/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"Ram\",\"password\":\"password\",\"api_key\":null}')"
+      "Bash(curl -X POST http://localhost:8000/api/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"Ram\",\"password\":\"password\",\"api_key\":null}')",
+      "Bash(python -m py_compile backend/app/hallucination_control.py)",
+      "Bash(python -m py_compile backend/app/generation/service.py)"
     ],
     "additionalDirectories": [
       "c:\\Users\\j.sebastian\\Desktop\\FDE RAG\\backend\\qdrant_storage",
