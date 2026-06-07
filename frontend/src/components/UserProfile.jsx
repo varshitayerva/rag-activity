@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { User, Mail, Building2, Shield, LogIn, Copy, Check, Edit2, Save, X } from 'lucide-react'
 import { API_CONFIG } from '../config/api'
 
-export function UserProfile({ apiKey }) {
+export function UserProfile({ apiKey, userRole = 'user' }) {
   const [profile, setProfile] = useState(null)
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -14,14 +14,15 @@ export function UserProfile({ apiKey }) {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        // Fetch profile
-        const profileRes = await fetch(API_CONFIG.auth.profile, {
+        // Fetch profile based on role
+        const profileEndpoint = userRole === 'admin' ? API_CONFIG.auth.admin_profile : API_CONFIG.auth.profile
+        const profileRes = await fetch(profileEndpoint, {
           headers: { 'X-API-Key': apiKey }
         })
         if (profileRes.ok) {
           const profileData = await profileRes.json()
           console.log('Profile data:', profileData)
-          const user = profileData.user || profileData
+          const user = profileData.user || profileData.admin || profileData
           setProfile(user)
           setEditData(user || {})
         } else {
@@ -132,25 +133,31 @@ export function UserProfile({ apiKey }) {
                 {isEditing ? (
                   <input
                     type="text"
-                    value={editData.username || ''}
-                    onChange={(e) => handleInputChange('username', e.target.value)}
+                    value={editData[userRole === 'admin' ? 'admin_id' : 'username'] || ''}
+                    onChange={(e) => handleInputChange(userRole === 'admin' ? 'admin_id' : 'username', e.target.value)}
                     className="bg-white/20 border-2 border-white/40 rounded px-2 py-1 text-white placeholder-white/60"
                   />
                 ) : (
-                  profile.username
+                  profile[userRole === 'admin' ? 'admin_id' : 'username']
                 )}
               </h1>
               <p className="text-blue-100">
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={editData.department || ''}
-                    onChange={(e) => handleInputChange('department', e.target.value)}
-                    className="bg-white/20 border-2 border-white/40 rounded px-2 py-1 text-white placeholder-white/60 text-sm"
-                    placeholder="Department"
-                  />
+                {userRole === 'admin' ? (
+                  <span>Admin Account</span>
                 ) : (
-                  profile.department || 'No department'
+                  <>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editData.department || ''}
+                        onChange={(e) => handleInputChange('department', e.target.value)}
+                        className="bg-white/20 border-2 border-white/40 rounded px-2 py-1 text-white placeholder-white/60 text-sm"
+                        placeholder="Department"
+                      />
+                    ) : (
+                      profile.department || 'No department'
+                    )}
+                  </>
                 )}
               </p>
             </div>
@@ -215,22 +222,24 @@ export function UserProfile({ apiKey }) {
               </div>
             </div>
 
-            <div>
-              <label className="text-sm text-gray-600 dark:text-gray-400">Department</label>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={editData.department || ''}
-                  onChange={(e) => handleInputChange('department', e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                />
-              ) : (
-                <div className="flex items-center gap-2 mt-1">
-                  <Building2 size={18} className="text-purple-500" />
-                  <span className="text-gray-900 dark:text-white">{profile.department || 'N/A'}</span>
-                </div>
-              )}
-            </div>
+            {userRole !== 'admin' && (
+              <div>
+                <label className="text-sm text-gray-600 dark:text-gray-400">Department</label>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editData.department || ''}
+                    onChange={(e) => handleInputChange('department', e.target.value)}
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  />
+                ) : (
+                  <div className="flex items-center gap-2 mt-1">
+                    <Building2 size={18} className="text-purple-500" />
+                    <span className="text-gray-900 dark:text-white">{profile.department || 'N/A'}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div>
               <label className="text-sm text-gray-600 dark:text-gray-400">Member Since</label>

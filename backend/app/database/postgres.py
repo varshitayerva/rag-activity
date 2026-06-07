@@ -21,7 +21,7 @@ class PostgresClient:
             'port': int(os.getenv('DB_PORT', 5432)),
             'user': os.getenv('DB_USER', 'postgres'),
             'password': os.getenv('DB_PASSWORD', 'postgres'),
-            'database': os.getenv('DB_NAME', 'fde_rag'),
+            'database': os.getenv('DB_NAME', 'rag_db'),
         }
         self._init_pool()
 
@@ -57,7 +57,7 @@ class PostgresClient:
                 PostgresClient._pool.putconn(conn)
 
     def init_db(self):
-        """Initialize database schema."""
+        """Initialize database schema and create default admin accounts."""
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
@@ -72,9 +72,47 @@ class PostgresClient:
                     cursor.execute(schema)
 
                 conn.commit()
+
+                # Create default admin accounts if they don't exist
+                import hashlib
+                from backend.app.auth import generate_api_key
+
+                admin_accounts = [
+                    ('admin_001', 'admin@example.com', 'admin123456'),
+                    ('admin_002', 'admin2@example.com', 'admin123456'),
+                ]
+
+                for admin_id, email, password in admin_accounts:
+                    try:
+                        password_hash = hashlib.sha256(password.encode()).hexdigest()
+                        admin_api_key = generate_api_key()
+                        cursor.execute("""
+                            INSERT INTO admins (admin_id, email, password_hash, admin_api_key, role, is_active)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                            ON CONFLICT (admin_id) DO NOTHING
+                        """, (admin_id, email, password_hash, admin_api_key, 'admin', True))
+                        conn.commit()
+                    except Exception as e:
+                        logger.warning(f"Could not create admin {admin_id}: {e}")
+                        conn.rollback()
+
+                # Create default user account if it doesn't exist
+                try:
+                    user_password_hash = hashlib.sha256('password123'.encode()).hexdigest()
+                    user_api_key = generate_api_key()
+                    cursor.execute("""
+                        INSERT INTO users (username, email, password_hash, api_key, department, role, is_active)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (username) DO NOTHING
+                    """, ('demouser', 'demo@example.com', user_password_hash, user_api_key, 'General', 'user', True))
+                    conn.commit()
+                except Exception as e:
+                    logger.warning(f"Could not create demo user: {e}")
+                    conn.rollback()
+
                 cursor.close()
 
-            logger.info("Database initialized successfully")
+            logger.info("Database initialized successfully with default admin accounts")
             return True
         except Exception as e:
             logger.error(f"Database initialization failed: {e}")

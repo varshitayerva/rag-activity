@@ -127,7 +127,49 @@ class MetricsCollector:
         """Get or create the singleton metrics instance."""
         if cls._instance is None:
             cls._instance = CacheMetrics()
+            cls._load_from_db()
         return cls._instance
+
+    @classmethod
+    def _load_from_db(cls):
+        """Load persisted metrics from database on startup."""
+        try:
+            from backend.app.database.postgres import db_client
+            with db_client.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT metric_type, SUM(value::BIGINT) as total
+                    FROM metrics
+                    WHERE timestamp > NOW() - INTERVAL '24 hours'
+                    GROUP BY metric_type
+                """)
+                for row in cursor.fetchall():
+                    metric_type, total = row[0], row[1] or 0
+                    if metric_type == 'query_count':
+                        cls._instance.query_count = int(total)
+                    elif metric_type == 'total_latency_ms':
+                        cls._instance.total_latency_ms = float(total)
+        except Exception as e:
+            print(f"Warning: Could not load metrics from DB: {e}")
+
+    @classmethod
+    def _persist_to_db(cls):
+        """Persist metrics to database."""
+        try:
+            from backend.app.database.postgres import db_client
+            metrics = cls.get_instance()
+            with db_client.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO metrics (metric_type, value)
+                    VALUES (%s, %s)
+                """, ('query_count', metrics.query_count))
+                cursor.execute("""
+                    INSERT INTO metrics (metric_type, value)
+                    VALUES (%s, %s)
+                """, ('total_latency_ms', metrics.total_latency_ms))
+        except Exception as e:
+            print(f"Warning: Could not persist metrics to DB: {e}")
 
     @classmethod
     def reset(cls):
@@ -176,6 +218,7 @@ class MetricsCollector:
         metrics = cls.get_instance()
         metrics.total_latency_ms += latency_ms
         metrics.query_count += 1
+        cls._persist_to_db()
 
     @classmethod
     def record_tokens(cls, input_tokens: int, output_tokens: int):
@@ -183,7 +226,6 @@ class MetricsCollector:
         metrics = cls.get_instance()
         metrics.total_input_tokens += input_tokens
         metrics.total_output_tokens += output_tokens
-        metrics.query_count += 1
 
     @classmethod
     def get_metrics(cls) -> Dict:

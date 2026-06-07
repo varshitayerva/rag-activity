@@ -17,17 +17,30 @@ export function MonitoringDashboard({ apiKey }) {
 
   const fetchData = async () => {
     try {
-      const [metricsRes, alertsRes, healthRes] = await Promise.all([
-        fetch(API_CONFIG.monitoring.metrics, {
-          headers: { 'X-API-Key': apiKey }
-        }).then(r => r.json()),
-        fetch(API_CONFIG.monitoring.alerts, {
-          headers: { 'X-API-Key': apiKey }
-        }).then(r => r.json()),
-        fetch(API_CONFIG.metrics.health, {
-          headers: { 'X-API-Key': apiKey }
-        }).then(r => r.json())
-      ])
+      // Fetch metrics
+      const metricsRes = await fetch(API_CONFIG.monitoring.metrics, {
+        headers: { 'X-API-Key': apiKey }
+      }).then(r => r.json()).catch(e => {
+        console.warn('Failed to fetch metrics:', e)
+        return { metrics: {} }
+      })
+
+      // Fetch alerts (optional - may not exist)
+      const alertsRes = await fetch(API_CONFIG.monitoring.alerts, {
+        headers: { 'X-API-Key': apiKey }
+      }).then(r => r.json()).catch(e => {
+        console.warn('Alerts endpoint not available:', e)
+        return { alerts: {} }
+      })
+
+      // Fetch health
+      const healthRes = await fetch(API_CONFIG.metrics.health, {
+        headers: { 'X-API-Key': apiKey }
+      }).then(r => r.json()).catch(e => {
+        console.warn('Failed to fetch health:', e)
+        return { health: {} }
+      })
+
       setMetrics(metricsRes.metrics || {})
       setAlerts(alertsRes.alerts || {})
       setHealth(healthRes.health || {})
@@ -59,9 +72,12 @@ export function MonitoringDashboard({ apiKey }) {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">System Monitoring</h1>
-            <p className="text-indigo-100">Real-time health & performance tracking</p>
+            <p className="text-indigo-100">Real-time health & performance tracking (All Users)</p>
           </div>
           <Activity size={48} className="opacity-80" />
+        </div>
+        <div className="mt-4 text-sm text-indigo-200">
+          <p>📊 These metrics represent <strong>system-wide activity from all users</strong> — total queries, latency, error rates, and performance across the entire platform.</p>
         </div>
       </div>
 

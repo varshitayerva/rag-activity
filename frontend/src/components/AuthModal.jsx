@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Lock, Copy, Eye, EyeOff, AlertCircle, User, Mail, Building2 } from 'lucide-react'
+import { Lock, Copy, Eye, EyeOff, AlertCircle, User, Mail, Building2, Shield } from 'lucide-react'
 
 export function AuthModal({
   onLogin,
@@ -14,12 +14,19 @@ export function AuthModal({
   const [showPassword, setShowPassword] = useState(false)
   const [showRegPassword, setShowRegPassword] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [userRole, setUserRole] = useState(null) // 'user' or 'admin'
 
   // Login form
   const [apiKey, setApiKey] = useState('')
   const [loginUsername, setLoginUsername] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginMethod, setLoginMethod] = useState('api') // 'api' or 'password'
+
+  // Admin login
+  const [adminId, setAdminId] = useState('')
+  const [adminPassword, setAdminPassword] = useState('')
+  const [adminApiKey, setAdminApiKey] = useState('')
+  const [adminLoginMethod, setAdminLoginMethod] = useState('apikey') // 'apikey' or 'credentials'
 
   // Registration form
   const [username, setUsername] = useState('')
@@ -48,32 +55,70 @@ export function AuthModal({
           {/* Header */}
           <h1 className="text-5xl font-black text-gray-900 dark:text-white text-center mb-3">AI Search Copilot</h1>
 
-          {/* Tabs */}
-          <div className="flex gap-2 mb-8 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
-            <button
-              onClick={() => setShowTab('login')}
-              className={`flex-1 py-2 px-4 rounded-md font-bold transition-all ${
-                showTab === 'login'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => setShowTab('register')}
-              className={`flex-1 py-2 px-4 rounded-md font-bold transition-all ${
-                showTab === 'register'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              Sign Up
-            </button>
-          </div>
+          {/* Role Selection */}
+          {!userRole && (
+            <>
+              <p className="text-gray-600 dark:text-gray-400 text-center mb-8 font-medium text-lg">Select your role to continue</p>
+              <div className="flex gap-4 mb-8">
+                <button
+                  onClick={() => setUserRole('user')}
+                  className="flex-1 py-6 px-4 rounded-xl font-bold transition-all border-2 border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 flex flex-col items-center gap-3"
+                >
+                  <User size={32} />
+                  <span>User Login</span>
+                </button>
+                <button
+                  onClick={() => setUserRole('admin')}
+                  className="flex-1 py-6 px-4 rounded-xl font-bold transition-all border-2 border-red-600 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40 flex flex-col items-center gap-3"
+                >
+                  <Shield size={32} />
+                  <span>Admin Login</span>
+                </button>
+              </div>
+            </>
+          )}
 
-          {/* LOGIN TAB */}
-          {showTab === 'login' && (
+          {/* Back Button & Tabs */}
+          {userRole && (
+            <div className="flex gap-2 mb-8">
+              <button
+                onClick={() => {
+                  setUserRole(null)
+                  setShowTab('login')
+                }}
+                className="px-4 py-2 rounded-md font-bold transition-all text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 text-sm"
+              >
+                ← Back
+              </button>
+              <div className="flex-1 flex gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+                <button
+                  onClick={() => setShowTab('login')}
+                  className={`flex-1 py-2 px-4 rounded-md font-bold transition-all ${
+                    showTab === 'login'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  Sign In
+                </button>
+                {userRole === 'user' && (
+                  <button
+                    onClick={() => setShowTab('register')}
+                    className={`flex-1 py-2 px-4 rounded-md font-bold transition-all ${
+                      showTab === 'register'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    Sign Up
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* LOGIN TAB - USER */}
+          {userRole === 'user' && showTab === 'login' && (
             <>
               <p className="text-gray-600 dark:text-gray-400 text-center mb-8 font-medium text-lg">Sign in to your account</p>
 
@@ -203,7 +248,7 @@ export function AuthModal({
                 {/* Sign In Button */}
                 <button
                   type="submit"
-                  disabled={isLoggingIn || !apiKey}
+                  disabled={isLoggingIn || (loginMethod === 'api' ? !apiKey : !loginUsername || !loginPassword)}
                   className="w-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold py-4 px-4 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:scale-105 text-lg"
                 >
                   {isLoggingIn ? (
@@ -219,8 +264,135 @@ export function AuthModal({
             </>
           )}
 
-          {/* REGISTER TAB */}
-          {showTab === 'register' && (
+          {/* LOGIN TAB - ADMIN */}
+          {userRole === 'admin' && showTab === 'login' && (
+            <>
+              <p className="text-gray-600 dark:text-gray-400 text-center mb-8 font-medium text-lg">Sign in as Admin</p>
+
+              {/* Admin Login Method Toggle */}
+              <div className="flex gap-2 mb-6 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setAdminLoginMethod('apikey')}
+                  className={`flex-1 py-2 px-3 rounded-md font-bold transition-all ${
+                    adminLoginMethod === 'apikey'
+                      ? 'bg-red-600 text-white shadow-md'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  Admin API Key
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdminLoginMethod('credentials')}
+                  className={`flex-1 py-2 px-3 rounded-md font-bold transition-all ${
+                    adminLoginMethod === 'credentials'
+                      ? 'bg-red-600 text-white shadow-md'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  Admin ID & Password
+                </button>
+              </div>
+
+              <form onSubmit={(e) => {
+                e.preventDefault()
+                if (adminLoginMethod === 'apikey') {
+                  onLogin({ adminApiKey, role: 'admin' })
+                } else {
+                  onLogin({ adminId, adminPassword, role: 'admin' })
+                }
+              }} className="space-y-6">
+                {/* Admin API Key Login */}
+                {adminLoginMethod === 'apikey' && (
+                  <div>
+                    <label className="block text-base font-bold text-gray-700 dark:text-gray-300 mb-3">Admin API Key</label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={adminApiKey}
+                        onChange={(e) => setAdminApiKey(e.target.value)}
+                        placeholder="admin-sk-key-12345"
+                        className="w-full px-5 py-3.5 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-300 text-base"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-3.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                      >
+                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Admin ID & Password Login */}
+                {adminLoginMethod === 'credentials' && (
+                  <>
+                    <div>
+                      <label className="block text-base font-bold text-gray-700 dark:text-gray-300 mb-3">Admin ID</label>
+                      <input
+                        type="text"
+                        value={adminId}
+                        onChange={(e) => setAdminId(e.target.value)}
+                        placeholder="admin_id_001"
+                        className="w-full px-5 py-3.5 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-300 text-base"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-base font-bold text-gray-700 dark:text-gray-300 mb-3">Admin Password</label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={adminPassword}
+                          onChange={(e) => setAdminPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full px-5 py-3.5 border-2 border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-300 text-base"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-3.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                        >
+                          {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Error Message */}
+                {loginError && (
+                  <div className="p-4 bg-red-100 dark:bg-red-900/30 border-2 border-red-400 dark:border-red-600 rounded-xl text-red-700 dark:text-red-300 text-sm font-medium flex items-start gap-3">
+                    <AlertCircle size={20} className="flex-shrink-0 mt-0.5" />
+                    <span>{loginError}</span>
+                  </div>
+                )}
+
+                {/* Sign In Button */}
+                <button
+                  type="submit"
+                  disabled={isLoggingIn || (adminLoginMethod === 'apikey' ? !adminApiKey : !adminId || !adminPassword)}
+                  className="w-full bg-gradient-to-r from-red-600 via-orange-600 to-pink-600 hover:from-red-700 hover:via-orange-700 hover:to-pink-700 text-white font-bold py-4 px-4 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:scale-105 text-lg"
+                >
+                  {isLoggingIn ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-5 h-5 border-2 border-white border-r-transparent rounded-full animate-spin"></div>
+                      Signing in...
+                    </span>
+                  ) : (
+                    'Admin Sign In'
+                  )}
+                </button>
+              </form>
+            </>
+          )}
+
+          {/* REGISTER TAB - USER ONLY */}
+          {userRole === 'user' && showTab === 'register' && (
             <>
               <p className="text-gray-600 dark:text-gray-400 text-center mb-6 font-medium">Create a new account</p>
               <form onSubmit={(e) => {
