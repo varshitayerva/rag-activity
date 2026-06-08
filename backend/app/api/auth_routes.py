@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from backend.app.database.postgres import db_client
 from backend.app.auth import generate_api_key, verify_api_key
-import hashlib
+import bcrypt
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +67,8 @@ async def register_user(request: RegisterRequest):
         # Generate API key
         api_key = generate_api_key()
 
-        # Hash password (simple hash for demo - use bcrypt in production)
-        password_hash = hashlib.sha256(request.password.encode()).hexdigest()
+        # Hash password using bcrypt (includes salt and work factor)
+        password_hash = bcrypt.hashpw(request.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
         # Insert into database
         with db_client.get_connection() as conn:
@@ -264,8 +264,8 @@ async def register_admin(request: AdminRegisterRequest):
         # Generate admin API key
         admin_api_key = generate_api_key()
 
-        # Hash password
-        password_hash = hashlib.sha256(request.password.encode()).hexdigest()
+        # Hash password using bcrypt (includes salt and work factor)
+        password_hash = bcrypt.hashpw(request.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
         # Insert into database
         with db_client.get_connection() as conn:
