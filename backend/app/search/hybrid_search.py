@@ -462,23 +462,23 @@ class HybridSearchService:
 
         # Weighted average - adjust weights based on embedding quality
         if using_mock_embeddings:
-            # With mock embeddings: prioritize BM25 and quality signals
+            # With mock embeddings: heavily prioritize BM25 (it's more reliable)
             overall = (
-                vector_confidence * 0.10 +   # Down from 0.25
-                bm25_confidence * 0.40 +     # Up from 0.25
-                quality_confidence * 0.30 +  # Up from 0.25
-                count_confidence * 0.12 +    # Down from 0.15
-                intent_confidence * 0.08     # Down from 0.10
+                vector_confidence * 0.05 +   # Minimal (mock is unreliable)
+                bm25_confidence * 0.50 +     # Primary signal (keyword matching)
+                quality_confidence * 0.25 +  # Secondary
+                count_confidence * 0.10 +    # Tertiary
+                intent_confidence * 0.10     # Baseline
             )
-            logger.info("Using mock embedding weights (BM25-heavy)")
+            logger.info("Using mock embedding weights (BM25-primary, vector minimal)")
         else:
             # With real embeddings: balanced approach
             overall = (
                 vector_confidence * 0.25 +
-                bm25_confidence * 0.25 +
+                bm25_confidence * 0.30 +
                 quality_confidence * 0.25 +
-                count_confidence * 0.15 +
-                intent_confidence * 0.10
+                count_confidence * 0.12 +
+                intent_confidence * 0.08
             )
             logger.info("Using real embedding weights (balanced)")
 
@@ -490,11 +490,11 @@ class HybridSearchService:
         ])
 
         # Apply AGGRESSIVE boost for strong multi-signal agreement
-        # Correct answers should reach 70%+ (HIGH), not stay at 60% (MEDIUM)
+        # Correct answers should reach 70%+ (HIGH), not stay at 55-60% (MEDIUM)
         if signal_strength >= 2:
-            boost_amount = 1.15 + (signal_strength * 0.05)  # 2 signals=20%, 3 signals=25%
+            boost_amount = 1.20 + (signal_strength * 0.08)  # 2 signals=28%, 3 signals=36%
             overall = min(0.95, overall * boost_amount)
-            logger.debug(f"Strong quality boost applied ({signal_strength} strong signals) - boosted by {round((boost_amount-1)*100)}%")
+            logger.info(f"Strong quality boost applied ({signal_strength} strong signals) - boosted by {round((boost_amount-1)*100)}% to {overall:.3f}")
 
         # SANITY CHECK: Ensure confidence reflects actual match quality
         # If semantic OR keyword matching are weak, don't return HIGH confidence
