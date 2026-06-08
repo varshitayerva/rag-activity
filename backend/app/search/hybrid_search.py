@@ -491,9 +491,9 @@ class HybridSearchService:
 
         # Apply boost for strong multi-signal agreement
         if signal_strength >= 2:
-            boost_amount = 1.05 + (signal_strength * 0.02)  # 2 signals=5%, 3 signals=7%
+            boost_amount = 1.08 + (signal_strength * 0.03)  # 2 signals=11%, 3 signals=14% (increased from 5-7%)
             overall = min(0.95, overall * boost_amount)
-            logger.debug(f"Quality boost applied ({signal_strength} strong signals)")
+            logger.debug(f"Quality boost applied ({signal_strength} strong signals) - boosted by {round((boost_amount-1)*100)}%")
 
         # SANITY CHECK: If BOTH semantic and keyword matching are weak, confidence must be NEAR ZERO
         # This catches cases where a question doesn't match documents at all
