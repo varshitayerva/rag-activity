@@ -393,8 +393,9 @@ class HybridSearchService:
                 vector_confidence = 0.50  # Neutral
                 logger.debug(f"Vector (MOCK): avg={avg_vector_score:.3f}, confidence={vector_confidence:.3f}")
             else:
-                # Real embeddings - use them as strong signal
-                vector_confidence = min(1.0, avg_vector_score * 1.15)
+                # Real embeddings - use them as STRONG signal with higher multiplier
+                # High scores (0.8+) should push to 0.85+
+                vector_confidence = min(1.0, avg_vector_score * 1.25)  # Increased from 1.15
                 logger.debug(f"Vector (REAL): avg={avg_vector_score:.3f}, confidence={vector_confidence:.3f}")
 
         # Signal 2: BM25 keyword relevance - PRIMARY when using mock embeddings
@@ -405,12 +406,12 @@ class HybridSearchService:
 
             # BM25 scores 0-30+, normalize to 0-1
             # CRITICAL: Penalize LOW top scores heavily - they indicate poor keyword match
-            # Map: 0->0.15, 1->0.25, 3->0.40, 5->0.55, 10->0.75, 15->0.85, 20->0.92
+            # Map: 0->0.15, 1->0.25, 3->0.40, 5->0.55, 10->0.75, 15->0.85, 20->0.92, 25->0.95
             if using_mock_embeddings:
                 # With mock embeddings, use stricter BM25 scoring
-                bm25_confidence = min(0.92, 0.15 + (avg_bm25_score / 30.0))
+                bm25_confidence = min(0.92, 0.15 + (avg_bm25_score / 28.0))  # Slightly more generous for good scores
             else:
-                bm25_confidence = min(0.90, 0.15 + (avg_bm25_score / 32.0))
+                bm25_confidence = min(0.93, 0.15 + (avg_bm25_score / 28.0))  # Slightly more generous for good scores
 
             # Penalty: if top result has very low BM25 score, penalize HEAVILY
             # BM25 is the primary signal for keyword relevance
@@ -494,14 +495,18 @@ class HybridSearchService:
             overall = min(0.95, overall * boost_amount)
             logger.debug(f"Quality boost applied ({signal_strength} strong signals)")
 
-        # SANITY CHECK: If BOTH semantic and keyword matching are weak, confidence must be VERY low
+        # SANITY CHECK: If BOTH semantic and keyword matching are weak, confidence must be NEAR ZERO
         # This catches cases where a question doesn't match documents at all
         if vector_confidence < 0.35 and bm25_confidence < 0.35:
-            overall = min(0.28, overall * 0.50)  # Penalize by 50%, cap at 28%
-            logger.warning(f"Poor match on both vector AND BM25 - confidence severely reduced to {overall:.3f}")
-        elif vector_confidence < 0.30 or bm25_confidence < 0.20:
-            # If either is critically low, apply strong penalty
-            overall = min(0.35, overall * 0.65)
+            overall = min(0.10, overall * 0.15)  # Penalize by 85%, cap at 10% (near zero)
+            logger.warning(f"NO MATCH on both vector AND BM25 - confidence reduced to near zero: {overall:.3f}")
+        elif vector_confidence < 0.30 and bm25_confidence < 0.25:
+            # Both critically low - essentially no match
+            overall = min(0.08, overall * 0.10)  # Penalize by 90%
+            logger.warning(f"CRITICAL NO MATCH on both signals - confidence near zero: {overall:.3f}")
+        elif vector_confidence < 0.25 or bm25_confidence < 0.15:
+            # Either is critically low - poor match
+            overall = min(0.30, overall * 0.40)  # Penalize by 60%, cap at 30%
             logger.warning(f"Critically low match signal - confidence reduced to {overall:.3f}")
 
         # Log confidence breakdown
