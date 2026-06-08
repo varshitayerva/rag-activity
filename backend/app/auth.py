@@ -59,7 +59,7 @@ def verify_api_key(request: Request) -> str:
     except Exception as e:
         logger.error(f"Error verifying API key in database: {str(e)}")
 
-    logger.warning(f"Invalid API key from {request.client.host}: {api_key[:10]}...")
+    logger.warning(f"Invalid API key from {request.client.host}")
     raise HTTPException(status_code=401, detail="Invalid API key")
 
 
@@ -91,7 +91,7 @@ def verify_admin_api_key(request: Request) -> str:
     except Exception as e:
         logger.error(f"Error verifying admin API key in database: {str(e)}")
 
-    logger.warning(f"Invalid admin API key from {request.client.host}: {api_key[:10]}...")
+    logger.warning(f"Invalid admin API key from {request.client.host}")
     raise HTTPException(status_code=401, detail="Invalid admin API key")
 
 def check_rate_limit(api_key: str) -> bool:
@@ -110,7 +110,7 @@ def check_rate_limit(api_key: str) -> bool:
 
     # Check if limit exceeded
     if count >= RATE_LIMIT_REQUESTS:
-        logger.warning(f"Rate limit exceeded for API key: {api_key[:10]}...")
+        logger.warning("Rate limit exceeded for API key")
         return False
 
     # Increment counter
@@ -122,7 +122,7 @@ async def require_auth(request: Request):
     api_key = verify_api_key(request)
 
     if not check_rate_limit(api_key):
-        logger.warning(f"Rate limit rejected for {api_key[:10]}...")
+        logger.warning("Rate limit rejected for API key")
         raise HTTPException(
             status_code=429,
             detail=f"Rate limit exceeded: {RATE_LIMIT_REQUESTS} requests per {RATE_LIMIT_WINDOW}s"
