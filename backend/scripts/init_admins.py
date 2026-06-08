@@ -63,8 +63,8 @@ def init_admins():
                     result = cursor.fetchone()
                     print(f"[OK] Admin '{admin['admin_id']}' initialized")
                     print(f"  - Email: {admin['email']}")
-                    print(f"  - API Key: {api_key}")
-                    print(f"  - Password: {admin['password']}")
+                    print("  - API Key: [REDACTED]")
+                    print("  - Password: [REDACTED]")
                     print()
 
                 except Exception as e:
@@ -76,11 +76,11 @@ def init_admins():
             conn.commit()
 
         print("\n[SUCCESS] Admin initialization complete!")
-        print("\nDemo Admin Credentials:")
+        print("\nDemo Admin Accounts:")
         print("=" * 50)
         for admin in demo_admins:
             print(f"Admin ID: {admin['admin_id']}")
-            print(f"Password: {admin['password']}")
+            print("Password: [REDACTED]")
             print("-" * 50)
 
     except Exception as e:
