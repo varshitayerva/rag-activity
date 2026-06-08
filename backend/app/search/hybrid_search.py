@@ -489,25 +489,23 @@ class HybridSearchService:
             1 if count_confidence > 0.68 else 0,
         ])
 
-        # Apply boost for strong multi-signal agreement
+        # Apply AGGRESSIVE boost for strong multi-signal agreement
+        # Correct answers should reach 70%+ (HIGH), not stay at 60% (MEDIUM)
         if signal_strength >= 2:
-            boost_amount = 1.08 + (signal_strength * 0.03)  # 2 signals=11%, 3 signals=14% (increased from 5-7%)
+            boost_amount = 1.15 + (signal_strength * 0.05)  # 2 signals=20%, 3 signals=25%
             overall = min(0.95, overall * boost_amount)
-            logger.debug(f"Quality boost applied ({signal_strength} strong signals) - boosted by {round((boost_amount-1)*100)}%")
+            logger.debug(f"Strong quality boost applied ({signal_strength} strong signals) - boosted by {round((boost_amount-1)*100)}%")
 
-        # SANITY CHECK: If BOTH semantic and keyword matching are weak, confidence must be NEAR ZERO
-        # This catches cases where a question doesn't match documents at all
-        if vector_confidence < 0.35 and bm25_confidence < 0.35:
-            overall = min(0.10, overall * 0.15)  # Penalize by 85%, cap at 10% (near zero)
-            logger.warning(f"NO MATCH on both vector AND BM25 - confidence reduced to near zero: {overall:.3f}")
-        elif vector_confidence < 0.30 and bm25_confidence < 0.25:
-            # Both critically low - essentially no match
-            overall = min(0.08, overall * 0.10)  # Penalize by 90%
-            logger.warning(f"CRITICAL NO MATCH on both signals - confidence near zero: {overall:.3f}")
-        elif vector_confidence < 0.25 or bm25_confidence < 0.15:
-            # Either is critically low - poor match
-            overall = min(0.30, overall * 0.40)  # Penalize by 60%, cap at 30%
-            logger.warning(f"Critically low match signal - confidence reduced to {overall:.3f}")
+        # SANITY CHECK: Ensure confidence reflects actual match quality
+        # If semantic OR keyword matching are weak, don't return HIGH confidence
+        if vector_confidence < 0.40 and bm25_confidence < 0.40:
+            # Both weak - this is a poor match, cap at MEDIUM (0.50)
+            overall = min(0.50, overall)
+            logger.warning(f"Weak match on both signals - capping at MEDIUM: {overall:.3f}")
+        elif vector_confidence < 0.35 or bm25_confidence < 0.30:
+            # Either is very weak - moderate penalty
+            overall = min(0.60, overall * 0.85)
+            logger.warning(f"Weak signal detected - confidence capped at 0.60: {overall:.3f}")
 
         # Log confidence breakdown
         logger.info(

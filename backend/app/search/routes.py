@@ -241,7 +241,7 @@ async def generate(
     dateFrom: str = None,
     dateTo: str = None,
     stream: bool = False,
-    confidence_threshold: float = 0.5
+    confidence_threshold: float = 0.35
 ):
     """Search and generate LLM answer with hallucination controls."""
     if not query or len(query.strip()) == 0:
