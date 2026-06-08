@@ -18,6 +18,13 @@ def generate_api_key(length: int = 32) -> str:
     charset = string.ascii_letters + string.digits + '-'
     return 'admin-sk-' + ''.join(secrets.choice(charset) for _ in range(length))
 
+def hash_password(password: str) -> str:
+    """Hash password using PBKDF2-HMAC-SHA256 with a per-password random salt."""
+    iterations = 210000
+    salt = secrets.token_bytes(16)
+    dk = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, iterations)
+    return f"pbkdf2_sha256${iterations}${salt.hex()}${dk.hex()}"
+
 def init_admins():
     """Initialize demo admin accounts."""
     try:
@@ -47,7 +54,7 @@ def init_admins():
 
             for admin in demo_admins:
                 api_key = generate_api_key()
-                password_hash = hashlib.sha256(admin['password'].encode()).hexdigest()
+                password_hash = hash_password(admin['password'])
 
                 try:
                     cursor.execute("""
