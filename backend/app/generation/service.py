@@ -25,28 +25,30 @@ def generate_answer(query: str, documents: list) -> Dict[str, Any]:
         for idx, doc in enumerate(documents[:5])
     ])
 
-    system_prompt = """You are a technical documentation assistant that MUST prioritize accuracy.
+    system_prompt = """You are a technical documentation assistant that MUST prioritize accuracy and only provide information that is explicitly stated.
 
 CRITICAL RULES:
-1. ONLY use information from provided documentation chunks
-2. DO NOT invent or assume information
+1. ONLY use information from the provided documentation chunks EXACTLY as written
+2. DO NOT invent, assume, or extrapolate information
 3. Cite sources explicitly: [Source: Chunk N] for every claim
-4. If information is incomplete, say so clearly
-5. Never use phrases like "I believe", "according to my training", "commonly known"
+4. DO NOT mention missing information or what documentation doesn't cover
+5. DO NOT use speculative statements like "[UNCERTAIN]", "may", "might", "could"
+6. Only state facts that are clearly present in the chunks
+7. If you cannot answer from provided chunks, simply say "I don't have this information in the provided documentation"
 
-When uncertain about any detail, mark with [UNCERTAIN] and explain what's missing."""
+Keep answers concise and focused on what is actually documented."""
 
     user_message = f"""Question: {query}
 
 Documentation Chunks:
 {context}
 
-Provide a well-structured answer that:
-1. Addresses the question directly
-2. Cites each claim with [Source: Chunk N]
-3. Uses clear formatting
-4. Marks uncertain information as [UNCERTAIN]
-5. Says "I don't have this information" if needed"""
+Instructions:
+1. Answer ONLY using the information provided above
+2. Cite each fact with [Source: Chunk N]
+3. Do NOT speculate or mention missing information
+4. If information is not in the chunks, say "I don't have this information in the provided documentation"
+5. Be direct and factual - no speculation or uncertainty markers"""
 
     try:
         message = client.chat.completions.create(
@@ -95,28 +97,30 @@ def stream_answer(query: str, documents: list):
         for idx, doc in enumerate(documents[:5])
     ])
 
-    system_prompt = """You are a technical documentation assistant that MUST prioritize accuracy.
+    system_prompt = """You are a technical documentation assistant that MUST prioritize accuracy and only provide information that is explicitly stated.
 
 CRITICAL RULES:
-1. ONLY use information from provided documentation chunks
-2. DO NOT invent or assume information
+1. ONLY use information from the provided documentation chunks EXACTLY as written
+2. DO NOT invent, assume, or extrapolate information
 3. Cite sources explicitly: [Source: Chunk N] for every claim
-4. If information is incomplete, say so clearly
-5. Never use phrases like "I believe", "according to my training", "commonly known"
+4. DO NOT mention missing information or what documentation doesn't cover
+5. DO NOT use speculative statements like "[UNCERTAIN]", "may", "might", "could"
+6. Only state facts that are clearly present in the chunks
+7. If you cannot answer from provided chunks, simply say "I don't have this information in the provided documentation"
 
-When uncertain about any detail, mark with [UNCERTAIN] and explain what's missing."""
+Keep answers concise and focused on what is actually documented."""
 
     user_message = f"""Question: {query}
 
 Documentation Chunks:
 {context}
 
-Provide a well-structured answer that:
-1. Addresses the question directly
-2. Cites each claim with [Source: Chunk N]
-3. Uses clear formatting
-4. Marks uncertain information as [UNCERTAIN]
-5. Says "I don't have this information" if needed"""
+Instructions:
+1. Answer ONLY using the information provided above
+2. Cite each fact with [Source: Chunk N]
+3. Do NOT speculate or mention missing information
+4. If information is not in the chunks, say "I don't have this information in the provided documentation"
+5. Be direct and factual - no speculation or uncertainty markers"""
 
     try:
         with client.chat.completions.create(
