@@ -80,7 +80,7 @@ function App() {
         setApiKey(data.api_key)
         setUserEmail(data.email || 'Admin')
         setUserRole(role)
-        localStorage.setItem('apiKey', data.api_key)
+        sessionStorage.setItem('apiKey', data.api_key)
         localStorage.setItem('userEmail', data.email || 'Admin')
         localStorage.setItem('userRole', role)
         setShowLoginModal(false)
