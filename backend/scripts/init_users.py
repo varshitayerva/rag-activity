@@ -35,8 +35,8 @@ def init_users():
                 result = cursor.fetchone()
                 print("[OK] Demo user 'demouser' initialized")
                 print(f"  - Email: demo@example.com")
-                print(f"  - API Key: {api_key}")
-                print(f"  - Password: password123")
+                print("  - API Key: [REDACTED]")
+                print("  - Password: [REDACTED]")
 
             except Exception as e:
                 print(f"[ERROR] Error creating user: {e}")
