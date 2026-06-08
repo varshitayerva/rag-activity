@@ -1,10 +1,12 @@
 """LLM generation service using Groq API."""
 
 import os
+import logging
 from typing import Optional, Dict, Any
 from groq import Groq
 from backend.app.hallucination_control import HallucinationValidator
 
+logger = logging.getLogger(__name__)
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 hallucination_validator = HallucinationValidator()
 
@@ -132,5 +134,6 @@ Provide a well-structured answer that:
             for chunk in stream:
                 if chunk.choices[0].delta.content:
                     yield chunk.choices[0].delta.content
-    except Exception as e:
-        yield f"Error: {str(e)}"
+    except Exception:
+        logger.exception("Error while streaming answer from Groq")
+        yield "Error: An internal error occurred while generating the response."
