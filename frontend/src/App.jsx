@@ -393,8 +393,8 @@ function App() {
 
             {view === 'feedback' && (
               <div className="h-full overflow-y-auto p-8">
-                <div className="max-w-3xl mx-auto">
-                  <FeedbackPanel apiKey={apiKey} lastSearch={lastSearch} />
+                <div className={userRole === 'admin' ? 'max-w-6xl mx-auto' : 'max-w-3xl mx-auto'}>
+                  <FeedbackPanel apiKey={apiKey} lastSearch={lastSearch} userRole={userRole} />
                 </div>
               </div>
             )}

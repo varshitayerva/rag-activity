@@ -385,38 +385,45 @@ class PostgresClient:
             cursor = conn.cursor(cursor_factory=RealDictCursor)
 
             try:
-                # Get summary stats
+                # Get summary stats with COALESCE to handle NULL values
                 cursor.execute(
                     """SELECT
                         COUNT(*) as total_feedback,
-                        SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) as thumbs_up,
-                        SUM(CASE WHEN rating = -1 THEN 1 ELSE 0 END) as thumbs_down,
-                        SUM(CASE WHEN rating = 0 THEN 1 ELSE 0 END) as neutral,
-                        AVG(confidence_score) as avg_confidence
+                        COALESCE(SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END), 0) as thumbs_up,
+                        COALESCE(SUM(CASE WHEN rating = -1 THEN 1 ELSE 0 END), 0) as thumbs_down,
+                        COALESCE(SUM(CASE WHEN rating = 0 THEN 1 ELSE 0 END), 0) as neutral,
+                        COALESCE(AVG(confidence_score), 0.0) as avg_confidence
                        FROM query_feedback
                        WHERE created_at >= NOW() - INTERVAL '%s days'""",
                     (days,)
                 )
                 stats = dict(cursor.fetchone())
+                logger.info(f"Analytics stats retrieved: {stats}")
 
-                # Get low-rated queries
+                # Get low-rated queries (rating = -1)
                 cursor.execute(
-                    """SELECT query, COUNT(*) as count, AVG(confidence_score) as avg_confidence
+                    """SELECT query, COUNT(*) as occurrences, COALESCE(AVG(confidence_score), 0.0) as avg_confidence
                        FROM query_feedback
                        WHERE rating = -1 AND created_at >= NOW() - INTERVAL '%s days'
                        GROUP BY query
-                       ORDER BY count DESC
+                       ORDER BY occurrences DESC
                        LIMIT 10""",
                     (days,)
                 )
                 low_rated = [dict(row) for row in cursor.fetchall()]
+                logger.info(f"Low rated queries found: {len(low_rated)}")
 
-                return {
+                result = {
                     'stats': stats,
                     'low_rated_queries': low_rated,
                     'period_days': days
                 }
+                logger.info(f"Analytics result: {result}")
+                return result
 
+            except Exception as e:
+                logger.error(f"Error in get_feedback_analytics: {e}", exc_info=True)
+                raise
             finally:
                 cursor.close()
 
@@ -427,7 +434,7 @@ class PostgresClient:
 
             try:
                 cursor.execute(
-                    """SELECT query, COUNT(*) as occurrences, AVG(confidence_score) as avg_confidence
+                    """SELECT query, COUNT(*) as occurrences, COALESCE(AVG(confidence_score), 0.0) as avg_confidence
                        FROM query_feedback
                        WHERE confidence_score < %s
                        GROUP BY query
@@ -438,6 +445,50 @@ class PostgresClient:
 
                 return [dict(row) for row in cursor.fetchall()]
 
+            finally:
+                cursor.close()
+
+    def get_all_feedback(self, limit: int = 100, offset: int = 0, days: int = 30) -> Dict[str, Any]:
+        """Get all feedback entries with pagination."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+            try:
+                # Get total count
+                logger.info(f"Querying feedback count for last {days} days")
+                cursor.execute(
+                    """SELECT COUNT(*) as total
+                       FROM query_feedback
+                       WHERE created_at >= NOW() - INTERVAL '%s days'""",
+                    (days,)
+                )
+                total = dict(cursor.fetchone()).get('total', 0)
+                logger.info(f"Total feedback found: {total}")
+
+                # Get paginated feedback
+                logger.info(f"Fetching paginated feedback: limit={limit}, offset={offset}")
+                cursor.execute(
+                    """SELECT id, query, answer, confidence_score, rating, feedback_text,
+                              chunks_used, created_at, updated_at
+                       FROM query_feedback
+                       WHERE created_at >= NOW() - INTERVAL '%s days'
+                       ORDER BY created_at DESC
+                       LIMIT %s OFFSET %s""",
+                    (days, limit, offset)
+                )
+                feedback_list = [dict(row) for row in cursor.fetchall()]
+                logger.info(f"Fetched {len(feedback_list)} feedback entries")
+
+                return {
+                    'total': total,
+                    'limit': limit,
+                    'offset': offset,
+                    'feedback': feedback_list
+                }
+
+            except Exception as e:
+                logger.error(f"Error fetching feedback: {e}", exc_info=True)
+                raise
             finally:
                 cursor.close()
 
