@@ -412,11 +412,16 @@ class HybridSearchService:
             else:
                 bm25_confidence = min(0.90, 0.15 + (avg_bm25_score / 32.0))
 
-            # Penalty: if top result has very low BM25 score, penalize heavily
-            if max_bm25_score < 1.0:
-                bm25_confidence *= 0.6  # Reduce confidence by 40%
+            # Penalty: if top result has very low BM25 score, penalize HEAVILY
+            # BM25 is the primary signal for keyword relevance
+            if max_bm25_score < 0.5:
+                bm25_confidence *= 0.3  # Reduce confidence by 70%
+            elif max_bm25_score < 1.0:
+                bm25_confidence *= 0.45  # Reduce confidence by 55%
+            elif max_bm25_score < 2.0:
+                bm25_confidence *= 0.65  # Reduce confidence by 35%
             elif max_bm25_score < 3.0:
-                bm25_confidence *= 0.8  # Reduce confidence by 20%
+                bm25_confidence *= 0.85  # Reduce confidence by 15%
 
             logger.debug(f"BM25: avg={avg_bm25_score:.3f}, max={max_bm25_score:.3f}, confidence={bm25_confidence:.3f}")
 
@@ -436,10 +441,11 @@ class HybridSearchService:
         else:
             quality_confidence = 0.60
 
-        # Signal 4: Result count boost
+        # Signal 4: Result count boost - but LOW baseline since results can be irrelevant
         result_count = len(results)
-        # 1 result=0.58, 3 results=0.72, 5 results=0.82, 10+ results=0.92
-        count_confidence = min(0.95, 0.58 + (result_count / 22.0))
+        # 1 result=0.35, 3 results=0.43, 5 results=0.50, 10+ results=0.60
+        # Lower than before - more results doesn't guarantee relevance
+        count_confidence = min(0.60, 0.35 + (result_count / 50.0))
         logger.debug(f"Result count: {result_count}, confidence={count_confidence:.3f}")
 
         # Signal 5: Intent match
@@ -488,11 +494,15 @@ class HybridSearchService:
             overall = min(0.95, overall * boost_amount)
             logger.debug(f"Quality boost applied ({signal_strength} strong signals)")
 
-        # SANITY CHECK: If BOTH semantic and keyword matching are weak, confidence must be low
+        # SANITY CHECK: If BOTH semantic and keyword matching are weak, confidence must be VERY low
         # This catches cases where a question doesn't match documents at all
-        if vector_confidence < 0.35 and bm25_confidence < 0.40:
-            overall = overall * 0.60  # Penalize by 40%
-            logger.warning(f"Poor match on both vector and BM25 - confidence reduced to {overall:.3f}")
+        if vector_confidence < 0.35 and bm25_confidence < 0.35:
+            overall = min(0.28, overall * 0.50)  # Penalize by 50%, cap at 28%
+            logger.warning(f"Poor match on both vector AND BM25 - confidence severely reduced to {overall:.3f}")
+        elif vector_confidence < 0.30 or bm25_confidence < 0.20:
+            # If either is critically low, apply strong penalty
+            overall = min(0.35, overall * 0.65)
+            logger.warning(f"Critically low match signal - confidence reduced to {overall:.3f}")
 
         # Log confidence breakdown
         logger.info(
