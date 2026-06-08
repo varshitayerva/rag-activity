@@ -200,5 +200,5 @@ async def debug_feedback(
         logger.error(f"Debug endpoint error: {e}", exc_info=True)
         return {
             "status": "error",
-            "message": str(e)
+            "message": "Failed to retrieve debug feedback information"
         }
