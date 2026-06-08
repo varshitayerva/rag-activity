@@ -320,5 +320,6 @@ async def generate(
 
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
+    except Exception:
+        logger.exception("Generation failed in search_and_generate")
+        raise HTTPException(status_code=500, detail="An internal error occurred while generating the response.")

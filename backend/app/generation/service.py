@@ -73,14 +73,14 @@ Provide a well-structured answer that:
             "risk_level": validation['risk_level'],
             "validation": validation
         }
-    except Exception as e:
-        print(f"Generation error: {e}")
+    except Exception:
+        logger.exception("Generation error")
         return {
-            "answer": f"Error generating answer: {str(e)}",
+            "answer": "I encountered an internal error while generating the answer. Please try again.",
             "sources": [],
             "hallucination_risk": 1.0,
             "risk_level": "HIGH",
-            "error": str(e)
+            "error": "internal_generation_error"
         }
 
 
