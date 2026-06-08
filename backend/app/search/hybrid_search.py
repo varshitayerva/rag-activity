@@ -442,11 +442,11 @@ class HybridSearchService:
         else:
             quality_confidence = 0.60
 
-        # Signal 4: Result count boost - but LOW baseline since results can be irrelevant
+        # Signal 4: Result count boost - when we have results, boost confidence
         result_count = len(results)
-        # 1 result=0.35, 3 results=0.43, 5 results=0.50, 10+ results=0.60
-        # Lower than before - more results doesn't guarantee relevance
-        count_confidence = min(0.60, 0.35 + (result_count / 50.0))
+        # 1 result=0.55, 3 results=0.65, 5 results=0.70, 10+ results=0.80
+        # More results = higher confidence that we found relevant info
+        count_confidence = min(0.85, 0.55 + (result_count / 35.0))
         logger.debug(f"Result count: {result_count}, confidence={count_confidence:.3f}")
 
         # Signal 5: Intent match
@@ -460,33 +460,34 @@ class HybridSearchService:
         intent_confidence = intent_map.get(intent, 0.78)
         logger.debug(f"Intent: {intent}, confidence={intent_confidence:.3f}")
 
-        # Weighted average - adjust weights based on embedding quality
+        # Weighted average - when documents are found, confidence should be HIGH
         if using_mock_embeddings:
             # With mock embeddings: heavily prioritize BM25 (it's more reliable)
             overall = (
                 vector_confidence * 0.05 +   # Minimal (mock is unreliable)
-                bm25_confidence * 0.50 +     # Primary signal (keyword matching)
-                quality_confidence * 0.25 +  # Secondary
-                count_confidence * 0.10 +    # Tertiary
+                bm25_confidence * 0.45 +     # Primary signal (keyword matching)
+                quality_confidence * 0.20 +  # Secondary
+                count_confidence * 0.20 +    # Results found = confidence boost
                 intent_confidence * 0.10     # Baseline
             )
-            logger.info("Using mock embedding weights (BM25-primary, vector minimal)")
+            logger.info("Using mock embedding weights (BM25-primary, count-boosted)")
         else:
             # With real embeddings: balanced approach
             overall = (
                 vector_confidence * 0.25 +
                 bm25_confidence * 0.30 +
-                quality_confidence * 0.25 +
-                count_confidence * 0.12 +
-                intent_confidence * 0.08
+                quality_confidence * 0.20 +
+                count_confidence * 0.15 +    # Increased: results found = confidence
+                intent_confidence * 0.10
             )
             logger.info("Using real embedding weights (balanced)")
 
-        # Boost confidence if we have good signals
+        # Boost confidence if we have found matching documents
+        # Lower thresholds since we already filtered for relevance
         signal_strength = sum([
-            1 if bm25_confidence > 0.65 else 0,
-            1 if quality_confidence > 0.65 else 0,
-            1 if count_confidence > 0.68 else 0,
+            1 if bm25_confidence > 0.50 else 0,  # Lowered from 0.65
+            1 if quality_confidence > 0.50 else 0,  # Lowered from 0.65
+            1 if count_confidence > 0.55 else 0,  # Lowered from 0.68
         ])
 
         # Apply AGGRESSIVE boost for strong multi-signal agreement
@@ -496,16 +497,12 @@ class HybridSearchService:
             overall = min(0.95, overall * boost_amount)
             logger.info(f"Strong quality boost applied ({signal_strength} strong signals) - boosted by {round((boost_amount-1)*100)}% to {overall:.3f}")
 
-        # SANITY CHECK: Ensure confidence reflects actual match quality
-        # If semantic OR keyword matching are weak, don't return HIGH confidence
-        if vector_confidence < 0.40 and bm25_confidence < 0.40:
-            # Both weak - this is a poor match, cap at MEDIUM (0.50)
-            overall = min(0.50, overall)
-            logger.warning(f"Weak match on both signals - capping at MEDIUM: {overall:.3f}")
-        elif vector_confidence < 0.35 or bm25_confidence < 0.30:
-            # Either is very weak - moderate penalty
-            overall = min(0.60, overall * 0.85)
-            logger.warning(f"Weak signal detected - confidence capped at 0.60: {overall:.3f}")
+        # SANITY CHECK: Only cap confidence if BOTH semantic AND keyword matching are very weak
+        # (This catches completely irrelevant queries)
+        if vector_confidence < 0.30 and bm25_confidence < 0.25:
+            # Both critically low - essentially no match
+            overall = min(0.35, overall * 0.70)
+            logger.warning(f"Critical NO MATCH on both signals - confidence reduced: {overall:.3f}")
 
         # Log confidence breakdown
         logger.info(
