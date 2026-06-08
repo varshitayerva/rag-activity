@@ -39,7 +39,7 @@ class PostgresVectorDB:
             self.connection = psycopg2.connect(**self.conn_params)
             if register_vector:
                 register_vector(self.connection)
-            logger.info(f"Connected to PostgreSQL: {self.conn_params['host']}:{self.conn_params['port']}/{self.conn_params['database']}")
+            logger.info("Connected to PostgreSQL")
         except Exception as e:
             logger.error(f"Failed to connect to PostgreSQL: {e}")
             raise
