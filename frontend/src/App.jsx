@@ -120,7 +120,7 @@ function App() {
         // Auto-login with new account
         setApiKey(data.api_key)
         setUserEmail(data.email)
-        localStorage.setItem('apiKey', data.api_key)
+        // Do not persist API keys in localStorage (sensitive cleartext storage risk)
         localStorage.setItem('userEmail', data.email)
         setShowLoginModal(false)
         setIsRegistering(false)
