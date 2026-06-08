@@ -69,13 +69,13 @@ async def search_chunks(
         )
         # Return full result dict with chunks, confidence_score, etc.
         return result
-    except Exception as e:
-        logger.error(f"Hybrid search error: {e}")
+    except Exception:
+        logger.exception("Hybrid search error")
         return {
             'chunks': [],
             'confidence_score': 0.0,
             'num_results': 0,
-            'error': str(e)
+            'error': "An internal error occurred"
         }
 
 
@@ -177,10 +177,10 @@ async def search_endpoint(
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Search failed: {e}")
+    except Exception:
+        logger.exception("Search failed")
         MetricsCollector.record_retrieval_miss()
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="An internal error has occurred")
 
 
 @router.get("/documents")
