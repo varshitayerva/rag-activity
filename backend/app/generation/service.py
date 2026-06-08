@@ -35,8 +35,9 @@ CRITICAL RULES:
 5. DO NOT use speculative statements like "[UNCERTAIN]", "may", "might", "could"
 6. Only state facts that are clearly present in the chunks
 7. If you cannot answer from provided chunks, simply say "I don't have this information in the provided documentation"
+8. Provide comprehensive, well-structured answers with all relevant information from the chunks
 
-Keep answers concise and focused on what is actually documented."""
+Use headers, bullet points, and sections to organize information clearly."""
 
     user_message = f"""Question: {query}
 
@@ -44,11 +45,12 @@ Documentation Chunks:
 {context}
 
 Instructions:
-1. Answer ONLY using the information provided above
+1. Provide a comprehensive answer using ALL relevant information from the chunks above
 2. Cite each fact with [Source: Chunk N]
-3. Do NOT speculate or mention missing information
-4. If information is not in the chunks, say "I don't have this information in the provided documentation"
-5. Be direct and factual - no speculation or uncertainty markers"""
+3. DO NOT speculate, add uncertainty markers like [UNCERTAIN], or mention missing information
+4. Use formatting (headers, bullet points, numbered lists) to organize your answer
+5. If the information is not in the chunks, simply state "I don't have this information in the provided documentation"
+6. Be complete but factual - extract and present all relevant details from the sources"""
 
     try:
         message = client.chat.completions.create(
@@ -107,8 +109,9 @@ CRITICAL RULES:
 5. DO NOT use speculative statements like "[UNCERTAIN]", "may", "might", "could"
 6. Only state facts that are clearly present in the chunks
 7. If you cannot answer from provided chunks, simply say "I don't have this information in the provided documentation"
+8. Provide comprehensive, well-structured answers with all relevant information from the chunks
 
-Keep answers concise and focused on what is actually documented."""
+Use headers, bullet points, and sections to organize information clearly."""
 
     user_message = f"""Question: {query}
 
@@ -116,11 +119,12 @@ Documentation Chunks:
 {context}
 
 Instructions:
-1. Answer ONLY using the information provided above
+1. Provide a comprehensive answer using ALL relevant information from the chunks above
 2. Cite each fact with [Source: Chunk N]
-3. Do NOT speculate or mention missing information
-4. If information is not in the chunks, say "I don't have this information in the provided documentation"
-5. Be direct and factual - no speculation or uncertainty markers"""
+3. DO NOT speculate, add uncertainty markers like [UNCERTAIN], or mention missing information
+4. Use formatting (headers, bullet points, numbered lists) to organize your answer
+5. If the information is not in the chunks, simply state "I don't have this information in the provided documentation"
+6. Be complete but factual - extract and present all relevant details from the sources"""
 
     try:
         with client.chat.completions.create(
