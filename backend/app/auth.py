@@ -136,7 +136,7 @@ async def require_admin_auth(request: Request):
     api_key = verify_admin_api_key(request)
 
     if not check_rate_limit(api_key):
-        logger.warning(f"Rate limit rejected for admin {api_key[:10]}...")
+        logger.warning("Rate limit rejected for admin request")
         raise HTTPException(
             status_code=429,
             detail=f"Rate limit exceeded: {RATE_LIMIT_REQUESTS} requests per {RATE_LIMIT_WINDOW}s"
