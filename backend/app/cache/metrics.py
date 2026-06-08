@@ -27,9 +27,14 @@ class CacheMetrics:
     # Timestamp
     start_time: float = None
 
+    # Query-level metrics for comparing cold vs warm cache
+    query_latencies: dict = None  # {query_text: [(latency_ms, is_hit, timestamp), ...]}
+
     def __post_init__(self):
         if self.start_time is None:
             self.start_time = time.time()
+        if self.query_latencies is None:
+            self.query_latencies = {}
 
     @property
     def total_queries(self) -> int:
@@ -127,7 +132,6 @@ class MetricsCollector:
         """Get or create the singleton metrics instance."""
         if cls._instance is None:
             cls._instance = CacheMetrics()
-            cls._load_from_db()
         return cls._instance
 
     @classmethod
@@ -149,6 +153,10 @@ class MetricsCollector:
                         cls._instance.query_count = int(total)
                     elif metric_type == 'total_latency_ms':
                         cls._instance.total_latency_ms = float(total)
+                    elif metric_type == 'total_input_tokens':
+                        cls._instance.total_input_tokens = int(total)
+                    elif metric_type == 'total_output_tokens':
+                        cls._instance.total_output_tokens = int(total)
         except Exception as e:
             print(f"Warning: Could not load metrics from DB: {e}")
 
@@ -168,6 +176,14 @@ class MetricsCollector:
                     INSERT INTO metrics (metric_type, value)
                     VALUES (%s, %s)
                 """, ('total_latency_ms', metrics.total_latency_ms))
+                cursor.execute("""
+                    INSERT INTO metrics (metric_type, value)
+                    VALUES (%s, %s)
+                """, ('total_input_tokens', metrics.total_input_tokens))
+                cursor.execute("""
+                    INSERT INTO metrics (metric_type, value)
+                    VALUES (%s, %s)
+                """, ('total_output_tokens', metrics.total_output_tokens))
         except Exception as e:
             print(f"Warning: Could not persist metrics to DB: {e}")
 
@@ -213,11 +229,25 @@ class MetricsCollector:
         metrics.response_cache_misses += 1
 
     @classmethod
-    def record_latency(cls, latency_ms: float):
-        """Record query latency."""
+    def record_latency(cls, latency_ms: float, query: str = None, is_cache_hit: bool = False):
+        """Record query latency with optional per-query tracking."""
         metrics = cls.get_instance()
         metrics.total_latency_ms += latency_ms
         metrics.query_count += 1
+
+        # Track per-query latency for cold vs warm comparison
+        if query:
+            if query not in metrics.query_latencies:
+                metrics.query_latencies[query] = []
+            metrics.query_latencies[query].append({
+                'latency_ms': latency_ms,
+                'is_cache_hit': is_cache_hit,
+                'timestamp': time.time()
+            })
+            # Keep only last 10 executions per query
+            if len(metrics.query_latencies[query]) > 10:
+                metrics.query_latencies[query] = metrics.query_latencies[query][-10:]
+
         cls._persist_to_db()
 
     @classmethod
@@ -231,3 +261,27 @@ class MetricsCollector:
     def get_metrics(cls) -> Dict:
         """Get all metrics as a dictionary."""
         return cls.get_instance().to_dict()
+
+    @classmethod
+    def get_query_performance_data(cls) -> Dict:
+        """Get cold vs warm cache comparison for recent queries."""
+        metrics = cls.get_instance()
+        comparisons = {}
+
+        for query, latencies in metrics.query_latencies.items():
+            if len(latencies) >= 2:
+                # Compare first execution (cold) vs latest execution (warm)
+                cold_latency = latencies[0]['latency_ms']
+                warm_latency = latencies[-1]['latency_ms']
+                improvement = ((cold_latency - warm_latency) / cold_latency * 100) if cold_latency > 0 else 0
+
+                comparisons[query] = {
+                    'cold_latency_ms': round(cold_latency, 2),
+                    'warm_latency_ms': round(warm_latency, 2),
+                    'improvement_percent': round(improvement, 1),
+                    'time_saved_ms': round(cold_latency - warm_latency, 2),
+                    'executions': len(latencies),
+                    'all_latencies': [round(l['latency_ms'], 2) for l in latencies],
+                }
+
+        return comparisons

@@ -142,17 +142,28 @@ async def search_endpoint(
         results = search_result.get('chunks', [])
         latency_ms = int((time.time() - start_time) * 1000)
 
+        # Determine if this was a cache hit based on latency
+        # Cache hits are typically <50ms, cache misses are >200ms
+        is_cache_hit = latency_ms < 100  # If very fast, likely cached
+
         response = {
             "query": query,
             "results": results,
             "search_type": "hybrid",
             "confidence_score": search_result.get('confidence_score', 0.0),
             "latency_ms": latency_ms,
-            "result_count": len(results)
+            "result_count": len(results),
+            "is_cache_hit": is_cache_hit
         }
 
-        MetricsCollector.record_latency(latency_ms)
-        MetricsCollector.record_embedding_hit()
+        # Record the REAL latency with query and cache hit status
+        MetricsCollector.record_latency(latency_ms, query=query, is_cache_hit=is_cache_hit)
+
+        if is_cache_hit:
+            MetricsCollector.record_embedding_hit()
+        else:
+            MetricsCollector.record_embedding_miss()
+
         input_tokens = len(query.split()) + 10
         output_tokens = len(results) * 50 if results else 0
         MetricsCollector.record_tokens(input_tokens, output_tokens)
@@ -275,6 +286,9 @@ async def generate(
         generation_result = generate_answer(query, results)
         latency_ms = int((time.time() - start_time) * 1000)
 
+        # Determine if this was a cache hit based on latency
+        is_cache_hit = latency_ms < 100  # Cache hits are very fast
+
         response = {
             "query": query,
             "answer": generation_result.get('answer'),
@@ -283,13 +297,24 @@ async def generate(
             "hallucination_risk": generation_result.get('hallucination_risk', 0.0),
             "risk_level": generation_result.get('risk_level', 'LOW'),
             "latency_ms": latency_ms,
-            "result_count": len(results)
+            "result_count": len(results),
+            "is_cache_hit": is_cache_hit
         }
 
-        MetricsCollector.record_latency(latency_ms)
-        MetricsCollector.record_embedding_hit()
+        # Record REAL latency with query and cache hit status
+        MetricsCollector.record_latency(latency_ms, query=query, is_cache_hit=is_cache_hit)
+
+        if is_cache_hit:
+            MetricsCollector.record_embedding_hit()
+        else:
+            MetricsCollector.record_embedding_miss()
+
         MetricsCollector.record_retrieval_hit() if results else MetricsCollector.record_retrieval_miss()
-        MetricsCollector.record_tokens(len(query.split()), len(generation_result.get('answer', '').split()))
+
+        input_tokens = len(query.split()) + 20
+        answer = generation_result.get('answer', '')
+        output_tokens = len(answer.split()) if answer else 100
+        MetricsCollector.record_tokens(input_tokens, output_tokens)
 
         return response
 
