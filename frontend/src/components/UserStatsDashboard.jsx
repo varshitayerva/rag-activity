@@ -9,23 +9,52 @@ export function UserStatsDashboard({ apiKey = '' }) {
   useEffect(() => {
     const fetchUserStats = async () => {
       try {
-        const response = await fetch(API_CONFIG.auth.profile, {
-          headers: { 'X-API-Key': apiKey }
-        })
-        if (response.ok) {
-          const data = await response.json()
-          const user = data.user || data
-          setUserStats({
-            username: user.username,
-            role: user.role,
-            department: user.department,
-            email: user.email,
-            created_at: user.created_at,
-            last_login: user.last_login
+        const [profileResponse, statsResponse] = await Promise.all([
+          fetch(API_CONFIG.auth.profile, {
+            headers: { 'X-API-Key': apiKey }
+          }),
+          fetch(API_CONFIG.user.stats, {
+            headers: { 'X-API-Key': apiKey }
           })
+        ])
+
+        let profileData = {}
+        let statsData = {}
+
+        if (profileResponse.ok) {
+          const data = await profileResponse.json()
+          profileData = data.user || data
         }
+
+        if (statsResponse.ok) {
+          const data = await statsResponse.json()
+          statsData = data.stats || data
+        }
+
+        setUserStats({
+          username: profileData.username || 'Unknown',
+          role: profileData.role || 'user',
+          department: profileData.department || 'N/A',
+          email: profileData.email || 'N/A',
+          created_at: profileData.created_at,
+          last_login: profileData.last_login,
+          search_count: statsData.search_count || 0,
+          generation_count: statsData.generation_count || 0,
+          total_queries: statsData.total_queries || 0
+        })
       } catch (error) {
         console.error('Failed to fetch user stats:', error)
+        setUserStats({
+          username: 'Error',
+          role: 'user',
+          department: 'N/A',
+          email: 'N/A',
+          created_at: null,
+          last_login: null,
+          search_count: 0,
+          generation_count: 0,
+          total_queries: 0
+        })
       } finally {
         setLoading(false)
       }
@@ -38,9 +67,14 @@ export function UserStatsDashboard({ apiKey = '' }) {
     }
   }, [apiKey])
 
-  if (loading) return <div className="text-center py-8">Loading user stats...</div>
+  if (loading) return <div className="text-center py-8 text-gray-600 dark:text-gray-400">Loading user stats...</div>
 
-  if (!userStats) return <div className="text-center py-8 text-red-500">Failed to load user stats</div>
+  if (!userStats || (userStats.username === 'Error' && !apiKey)) return (
+    <div className="text-center py-12 text-gray-600 dark:text-gray-400">
+      <p className="mb-2">Unable to load user statistics</p>
+      <p className="text-sm">Please make sure you are logged in with a valid API key</p>
+    </div>
+  )
 
   return (
     <div className="p-6 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 min-h-screen">
@@ -73,7 +107,10 @@ export function UserStatsDashboard({ apiKey = '' }) {
             <Calendar className="text-green-500" size={24} />
           </div>
           <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {new Date(userStats.member_since).toLocaleDateString()}
+            {userStats.created_at
+              ? new Date(userStats.created_at).toLocaleDateString()
+              : 'N/A'
+            }
           </p>
         </div>
       </div>
@@ -85,7 +122,7 @@ export function UserStatsDashboard({ apiKey = '' }) {
             <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Total Searches</h3>
             <Search className="text-blue-500" size={32} />
           </div>
-          <p className="text-6xl font-bold text-blue-600 dark:text-blue-400">{userStats.search_count}</p>
+          <p className="text-6xl font-bold text-blue-600 dark:text-blue-400">{userStats.search_count || 0}</p>
           <div className="mt-4 bg-blue-100 dark:bg-blue-900/30 rounded-lg p-3">
             <p className="text-sm text-blue-700 dark:text-blue-300">Semantic searches performed</p>
           </div>
@@ -96,7 +133,7 @@ export function UserStatsDashboard({ apiKey = '' }) {
             <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Generations</h3>
             <Zap className="text-purple-500" size={32} />
           </div>
-          <p className="text-6xl font-bold text-purple-600 dark:text-purple-400">{userStats.generation_count}</p>
+          <p className="text-6xl font-bold text-purple-600 dark:text-purple-400">{userStats.generation_count || 0}</p>
           <div className="mt-4 bg-purple-100 dark:bg-purple-900/30 rounded-lg p-3">
             <p className="text-sm text-purple-700 dark:text-purple-300">LLM answers generated</p>
           </div>
@@ -107,7 +144,7 @@ export function UserStatsDashboard({ apiKey = '' }) {
             <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Total Queries</h3>
             <TrendingUp className="text-green-500" size={32} />
           </div>
-          <p className="text-6xl font-bold text-green-600 dark:text-green-400">{userStats.total_queries}</p>
+          <p className="text-6xl font-bold text-green-600 dark:text-green-400">{userStats.total_queries || 0}</p>
           <div className="mt-4 bg-green-100 dark:bg-green-900/30 rounded-lg p-3">
             <p className="text-sm text-green-700 dark:text-green-300">Combined searches & generations</p>
           </div>
@@ -124,13 +161,13 @@ export function UserStatsDashboard({ apiKey = '' }) {
             <div className="flex justify-between items-center mb-3">
               <span className="text-gray-700 dark:text-gray-300 font-semibold">Search Activity</span>
               <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {userStats.total_queries > 0 ? Math.round((userStats.search_count / userStats.total_queries) * 100) : 0}%
+                {(userStats.total_queries && userStats.total_queries > 0) ? Math.round(((userStats.search_count || 0) / userStats.total_queries) * 100) : 0}%
               </span>
             </div>
             <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3">
               <div
                 className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full"
-                style={{width: `${userStats.total_queries > 0 ? (userStats.search_count / userStats.total_queries) * 100 : 0}%`}}
+                style={{width: `${(userStats.total_queries && userStats.total_queries > 0) ? ((userStats.search_count || 0) / userStats.total_queries) * 100 : 0}%`}}
               ></div>
             </div>
           </div>
@@ -140,13 +177,13 @@ export function UserStatsDashboard({ apiKey = '' }) {
             <div className="flex justify-between items-center mb-3">
               <span className="text-gray-700 dark:text-gray-300 font-semibold">Generation Activity</span>
               <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                {userStats.total_queries > 0 ? Math.round((userStats.generation_count / userStats.total_queries) * 100) : 0}%
+                {(userStats.total_queries && userStats.total_queries > 0) ? Math.round(((userStats.generation_count || 0) / userStats.total_queries) * 100) : 0}%
               </span>
             </div>
             <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3">
               <div
                 className="bg-gradient-to-r from-purple-500 to-purple-600 h-3 rounded-full"
-                style={{width: `${userStats.total_queries > 0 ? (userStats.generation_count / userStats.total_queries) * 100 : 0}%`}}
+                style={{width: `${(userStats.total_queries && userStats.total_queries > 0) ? ((userStats.generation_count || 0) / userStats.total_queries) * 100 : 0}%`}}
               ></div>
             </div>
           </div>

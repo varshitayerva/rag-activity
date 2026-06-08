@@ -40,10 +40,20 @@ export const apiClient = {
     } catch (error) {
       console.error('Metrics error:', error)
       return {
-        cache_hit_rate: 0.73,
-        avg_latency_ms: 340,
-        total_queries: 89,
-        avg_tokens: 2450
+        cache_hit_rate: 0.5,
+        avg_latency_ms: 0,
+        total_queries: 0,
+        avg_tokens_in_context: 0,
+        avg_input_tokens: 0,
+        avg_output_tokens: 0,
+        embedding_cache_hits: 0,
+        embedding_cache_misses: 0,
+        retrieval_cache_hits: 0,
+        retrieval_cache_misses: 0,
+        response_cache_hits: 0,
+        response_cache_misses: 0,
+        estimated_cost_usd: 0,
+        uptime_seconds: 0
       }
     }
   },

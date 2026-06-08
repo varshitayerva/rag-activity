@@ -46,6 +46,7 @@ export const API_CONFIG = {
   // Cache endpoints
   cache: {
     stats: `${API_BASE_URL}/api/cache/stats`,
+    queryPerformance: `${API_BASE_URL}/api/cache/query-performance`,
     clear: `${API_BASE_URL}/api/cache/clear`,
   },
 
