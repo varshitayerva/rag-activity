@@ -374,12 +374,13 @@ class HybridSearchService:
             if using_mock_embeddings:
                 logger.warning("Detected mock embeddings - using fallback confidence weights")
 
-        # Initialize scoring components
-        vector_confidence = 0.50
-        bm25_confidence = 0.55
-        quality_confidence = 0.60
-        count_confidence = 0.55
-        intent_confidence = 0.78
+        # Initialize scoring components with LOW defaults
+        # These will be overridden with actual scores; high defaults mask poor matches
+        vector_confidence = 0.25
+        bm25_confidence = 0.25
+        quality_confidence = 0.30
+        count_confidence = 0.30
+        intent_confidence = 0.40
 
         # Signal 1: Vector semantic relevance
         if vector_results and len(vector_results) > 0:
@@ -400,14 +401,24 @@ class HybridSearchService:
         if bm25_results and len(bm25_results) > 0:
             top_5_bm25 = bm25_results[:5]
             avg_bm25_score = sum(r.get('score', 0) for r in top_5_bm25) / len(top_5_bm25)
+            max_bm25_score = bm25_results[0].get('score', 0) if bm25_results else 0
+
             # BM25 scores 0-30+, normalize to 0-1
-            # Map: 0->0.40, 3->0.55, 5->0.65, 10->0.80, 15->0.90, 20->0.95
+            # CRITICAL: Penalize LOW top scores heavily - they indicate poor keyword match
+            # Map: 0->0.15, 1->0.25, 3->0.40, 5->0.55, 10->0.75, 15->0.85, 20->0.92
             if using_mock_embeddings:
-                # More generous with BM25 when embeddings are poor
-                bm25_confidence = min(0.98, 0.40 + (avg_bm25_score / 25.0))
+                # With mock embeddings, use stricter BM25 scoring
+                bm25_confidence = min(0.92, 0.15 + (avg_bm25_score / 30.0))
             else:
-                bm25_confidence = min(0.95, 0.35 + (avg_bm25_score / 30.0))
-            logger.debug(f"BM25: avg={avg_bm25_score:.3f}, confidence={bm25_confidence:.3f}")
+                bm25_confidence = min(0.90, 0.15 + (avg_bm25_score / 32.0))
+
+            # Penalty: if top result has very low BM25 score, penalize heavily
+            if max_bm25_score < 1.0:
+                bm25_confidence *= 0.6  # Reduce confidence by 40%
+            elif max_bm25_score < 3.0:
+                bm25_confidence *= 0.8  # Reduce confidence by 20%
+
+            logger.debug(f"BM25: avg={avg_bm25_score:.3f}, max={max_bm25_score:.3f}, confidence={bm25_confidence:.3f}")
 
         # Signal 3: Result quality signals (entity + answer awareness)
         quality_scores = []
@@ -477,6 +488,12 @@ class HybridSearchService:
             overall = min(0.95, overall * boost_amount)
             logger.debug(f"Quality boost applied ({signal_strength} strong signals)")
 
+        # SANITY CHECK: If BOTH semantic and keyword matching are weak, confidence must be low
+        # This catches cases where a question doesn't match documents at all
+        if vector_confidence < 0.35 and bm25_confidence < 0.40:
+            overall = overall * 0.60  # Penalize by 40%
+            logger.warning(f"Poor match on both vector and BM25 - confidence reduced to {overall:.3f}")
+
         # Log confidence breakdown
         logger.info(
             f"Overall confidence: {round(overall, 3)} | "
@@ -487,7 +504,7 @@ class HybridSearchService:
             f"Intent={round(intent_confidence, 2)}"
         )
 
-        return max(0.55, min(0.95, overall))  # Clamp between 0.55 and 0.95
+        return max(0.20, min(0.95, overall))  # Clamp between 0.20 and 0.95
 
     def _calculate_result_confidence(self, result: Dict, overall_confidence: float,
                                      rank: int, total_results: int) -> float:

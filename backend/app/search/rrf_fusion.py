@@ -135,13 +135,15 @@ class RRFFusion:
         # Add final rank and format for response
         final_results = []
         for idx, result in enumerate(combined_results):
+            filename = result.get('filename', 'Unknown')
             final_results.append({
                 'text': result['text'],
                 'score': result['combined_rrf_score'],
                 'rank': idx,
                 'chunk_id': result.get('chunk_id', ''),
                 'doc_id': result.get('doc_id', ''),
-                'filename': result.get('filename', ''),
+                'filename': filename,
+                'doc': filename,
                 'section': result.get('section', ''),
                 'page': result.get('page', 0),
                 'department': result.get('department', ''),

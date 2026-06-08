@@ -94,19 +94,21 @@ class PostgresVectorDB:
 
             cursor.execute("""
                 SELECT
-                    id,
-                    document_id,
-                    chunk_index,
-                    text,
-                    section,
-                    page_number,
-                    department,
-                    category,
-                    created_at,
-                    (2 - (embedding <-> %s::vector)) / 2 AS score
-                FROM chunks
-                WHERE embedding IS NOT NULL
-                ORDER BY embedding <-> %s::vector
+                    c.id,
+                    c.document_id,
+                    c.chunk_index,
+                    c.text,
+                    c.section,
+                    c.page_number,
+                    c.department,
+                    c.category,
+                    c.created_at,
+                    (2 - (c.embedding <-> %s::vector)) / 2 AS score,
+                    COALESCE(d.filename, 'Unknown') AS filename
+                FROM chunks c
+                LEFT JOIN documents d ON c.document_id = d.id
+                WHERE c.embedding IS NOT NULL
+                ORDER BY c.embedding <-> %s::vector
                 LIMIT %s
             """, (query_str, query_str, top_k))
 
@@ -123,7 +125,9 @@ class PostgresVectorDB:
                     'category': row['category'],
                     'created_at': str(row['created_at']),
                     'score': float(row['score']),
-                    'rank': idx
+                    'rank': idx,
+                    'filename': row['filename'],
+                    'doc': row['filename']
                 })
 
             return formatted_results
